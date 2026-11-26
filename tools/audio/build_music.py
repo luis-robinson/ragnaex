@@ -78,9 +78,17 @@ def main():
             shutil.copyfile(src, dst)
         credits.append("| %s | %s | %s | https://opengameart.org/content/%s |" % (theme, title, author, page))
         print("%-10s -> %s (%.1f MB)" % (theme, os.path.basename(dst), os.path.getsize(dst) / 1048576))
+    # tema que reusa a faixa de outro (Music.FILE_OF): mesma linha de crédito com o nome do tema
+    for theme, src_theme in ALIASES.items():
+        for line in list(credits):
+            if line.startswith("| %s |" % src_theme):
+                credits.append(line.replace("| %s |" % src_theme, "| %s |" % theme, 1))
     with open(os.path.join(OUT, "CREDITS.md"), "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(credits) + "\n")
 
+
+## Music.FILE_OF: tema -> tema cuja faixa ele toca (sem arquivo próprio)
+ALIASES = {"arena": "investida"}
 
 if __name__ == "__main__":
     main()

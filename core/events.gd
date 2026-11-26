@@ -88,3 +88,9 @@ signal guild_invite(guild_id: String, from_name: String)     # convite da guilda
 signal guild_changed(guild_id: String)       # guilda criada/entrou/saiu/membro mudou
 signal bot_help_request(req: Dictionary)     # pedido de socorro novo (marca no minimapa)
 signal bot_help_ended(req_id: int, outcome: String)     # helped | expired
+# Banco da Guilda (GuildBankSystem; design/gdd/banco-da-guilda.md)
+signal guild_bank_changed()                  # itens, ouro, patente, encomendas ou pedidos mudaram
+signal guild_mission_back(notice: Dictionary)     # encomenda voltou: cartão à esquerda do minimapa (formato GuildBankSystem.notice_of)
+# Campo de Caça da Guilda (ArenaSystem; design/gdd/arena-da-guilda.md)
+signal arena_wave(wave: int, info: Dictionary)   # leva começou: {size, elite, boss, mod, mod_label}
+signal arena_ended(summary: Dictionary)          # corrida acabou: {wave, reason, gold, cards, time, record, new_record, names}

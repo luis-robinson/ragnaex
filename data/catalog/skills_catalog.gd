@@ -673,7 +673,7 @@ static func build(classes: Dictionary) -> Array:
 		 "effects": {"shield": {"amount_pct_hp": 10, "duration": 6}}},
 		{"id": "elem_tempest_chain", "name": "Corrente da Tempestade", "vfx": "lightning", "target": T_TARGET, "kind": K_MAG, "power": 1.6, "cooldown": 6.0, "range": 9.0, "radius": _elem_area(4.0, 2), "max_targets": 6, "startup": 0.3, "active": 0.1, "recovery": 0.35, "hit_stop_frames": 3, "icon_color": Color(0.75, 0.75, 1.0),
 		 "effects": {"stun": {"duration": 0.4}}},
-	]:
+	] + _world_boss_skills():
 		d["mp_cost"] = 0
 		d["mastery"] = _mastery()
 		if BOSS_PICK.has(d["id"]):
@@ -1897,4 +1897,97 @@ static func _ult_helpers_b1() -> Array:
 			"Fecho do Festim de Sangue: giro dos dois machados que cura por inimigo que sangrava.",
 			{"vfx": "blood", "clip": "atk_spin", "radius": float(fea["end_radius"]), "startup": 0.0, "active": 0.05, "recovery": 0.0, "hit_stop_frames": 4,
 			 "icon_color": Color(0.95, 0.25, 0.25), "wound_heal": {"pct": float(fea["end_heal_pct"]), "max": int(fea["end_heal_max"])}}),
+	]
+
+## Chefes de Mundo (GDD momentos-do-mundo §3.1/§10): golpes pelos clipes dos modelos (tools/blender/world_bosses.py; impacto =
+## EntityView.IMPACT_FRAME: atk_charge 5, slam 8, roar/shout 7, maul 7, pounce 9, brace 6, cast_ground 10; o Javali não tem
+## cast_ground). Só efeitos que já existem; uma assinatura por chefe (chão avisado, não esquivável pela AGI).
+static func _world_boss_skills() -> Array:
+	return [
+		# ---- Javali Ancestral (10) ----
+		{"id": "mob_wb_boar_gore", "name": "Presa Ancestral", "clip": "maul", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 5.0, "cone_angle_deg": 100, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.85, 0.75, 0.6), "vfx": "blood",
+		 "effects": {"knockback": {"dist": 2.0}}},
+		{"id": "mob_wb_boar_stomp", "name": "Casco que Racha a Terra", "clip": "slam", "target": T_SELF, "kind": K_PHYS, "power": 1.2, "cooldown": 12.0, "radius": 6.0, "startup": 0.8, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.6, 0.45, 0.3), "vfx": "earth",
+		 "effects": {"slow": {"pct": 35, "duration": 2.5}}},
+		{"id": "mob_wb_boar_rush", "name": "Disparada da Vara", "clip": "atk_charge", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 13.0, "range": 16.0, "radius": 1.6, "startup": 0.75, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.8, 0.55, 0.35), "mob_pick": "far", "vfx": "earth",
+		 "effects": {"dash": 15.0, "stun": {"duration": 0.6}}},
+		{"id": "mob_wb_boar_call", "name": "Chamado da Vara", "clip": "roar", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.4, 0.3), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "wb_boar_kin", "count": 2, "max": 4, "pick": "soft"}}},
+		# assinatura: três faixas encadeadas rumo a quem não é o tanque; quando cada uma cai o javali corre por ela (cortejo)
+		{"id": "mob_wb_boar_trail", "name": "Trilha Ancestral", "clip": "brace", "target": T_SELF, "kind": K_PHYS, "power": 1.6, "cooldown": 26.0, "radius": 0.0, "startup": 0.6, "active": 0.1, "recovery": 3.4, "hit_stop_frames": 5, "icon_color": Color(0.7, 0.5, 0.3), "vfx": "earth", "boss_signature": true,
+		 "effects": {"barrage": {"shape": "cortege", "count": 3, "length": 14.0, "width": 3.0, "delay": 1.8, "stagger": 0.8, "arena": 30.0,
+			"say": "(o Javali Ancestral raspa o chão três vezes: a terra marca o caminho dele)"}, "stun": {"duration": 0.8}}},
+		# ---- Alce Ancião (20) ----
+		{"id": "mob_wb_elk_antlers", "name": "Galhada de Cristal", "clip": "maul", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 5.5, "cone_angle_deg": 110, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.85, 0.85), "vfx": "blood"},
+		{"id": "mob_wb_elk_trample", "name": "Galope do Bosque", "clip": "atk_charge", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 13.0, "range": 15.0, "radius": 1.8, "startup": 0.7, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.45, 0.35), "mob_pick": "far", "vfx": "earth",
+		 "effects": {"dash": 13.0, "slow": {"pct": 40, "duration": 2.0}}},
+		{"id": "mob_wb_elk_shards", "name": "Chuva de Lascas", "clip": "slam", "target": T_GROUND, "kind": K_PHYS, "power": 1.1, "cooldown": 11.0, "range": 16.0, "radius": 2.5, "startup": 0.7, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.6, 0.85, 0.9), "mob_pick": "random", "vfx": "earth",
+		 "effects": {"barrage": {"count": 4, "radius": 2.5, "delay": 1.4, "spread": 10.0}, "slow": {"pct": 30, "duration": 2.0}}},
+		{"id": "mob_wb_elk_bellow", "name": "Bramido Ancião", "clip": "roar", "target": T_SELF, "kind": K_PHYS, "power": 0.9, "cooldown": 15.0, "radius": 7.0, "startup": 0.8, "active": 0.2, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.5, 0.6, 0.5), "vfx": "nature",
+		 "effects": {"knockback": {"dist": 3.0}}},
+		{"id": "mob_wb_elk_call", "name": "Chamado da Manada", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.8, 0.8), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "wb_crystal_deer", "count": 2, "max": 4, "pick": "soft"}}},
+		# assinatura: cristais brotam em anéis a partir dele (dois pulsos, o 2º desloca o lugar seguro); prende quem ficou
+		{"id": "mob_wb_elk_eruption", "name": "Erupção de Cristal", "clip": "cast_ground", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 26.0, "radius": 0.0, "startup": 0.7, "active": 2.6, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.9, 0.9), "vfx": "earth", "boss_signature": true,
+		 "effects": {"barrage": {"shape": "ring", "count": 3, "width": 2.5, "inner": 2.0, "spacing": 5.5, "delay": 1.8, "stagger": 0.6, "pulses": 2, "pulse_gap": 1.4, "pulse_shift": 2.75,
+			"say": "(a galhada acende: o chão em volta do Alce racha em anéis de cristal)"}, "root": {"duration": 1.2}}},
+		# ---- Basilisco das Ruínas (30) ----
+		{"id": "mob_wb_bas_bite", "name": "Mordida Pétrea", "clip": "maul", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 5.0, "cone_angle_deg": 90, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.7, 0.4), "vfx": "poison",
+		 "effects": {"dot": {"dps": 30, "duration": 4}}},
+		{"id": "mob_wb_bas_tail", "name": "Cauda de Coluna", "clip": "slam", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 11.0, "radius": 6.5, "startup": 0.8, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.6, 0.58, 0.52), "vfx": "earth",
+		 "effects": {"stun": {"duration": 0.6}}},
+		{"id": "mob_wb_bas_rush", "name": "Bote Rasteiro", "clip": "atk_charge", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 13.0, "range": 15.0, "radius": 1.8, "startup": 0.7, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.55, 0.5), "mob_pick": "far", "vfx": "earth",
+		 "effects": {"dash": 14.0}},
+		{"id": "mob_wb_bas_spit", "name": "Cuspe Ácido", "clip": "roar", "target": T_GROUND, "kind": K_PHYS, "power": 1.0, "cooldown": 12.0, "range": 16.0, "radius": 2.6, "startup": 0.7, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.5, 0.8, 0.3), "mob_pick": "random", "vfx": "poison",
+		 "effects": {"barrage": {"count": 3, "radius": 2.6, "delay": 1.4, "spread": 9.0, "linger": 4.0, "tick_power": 0.15}, "slow": {"pct": 25, "duration": 2.0}}},
+		{"id": "mob_wb_bas_call", "name": "Estátuas Despertas", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.62, 0.6, 0.55), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "wb_ruin_statue", "count": 2, "max": 4, "pick": "soft"}}},
+		# assinatura: o olhar petrifica uma faixa larga rumo a uma vítima; 2 s para sair de lado (atordoa 2,5 s quem ficou)
+		{"id": "mob_wb_bas_gaze", "name": "Olhar que Petrifica", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 0.9, "cooldown": 22.0, "range": 40.0, "radius": 5.0, "startup": 0.7, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 6, "icon_color": Color(0.85, 0.9, 0.5), "mob_pick": "random", "vfx": "earth", "boss_signature": true,
+		 "effects": {"barrage": {"shape": "line", "count": 1, "width": 10.0, "length": 30.0, "delay": 2.0,
+			"say": "(os olhos do basilisco incham e brilham: NÃO OLHEM!)"}, "stun": {"duration": 2.5}}},
+		# ---- Rinoceronte de Guerra da Horda (40) ----
+		{"id": "mob_wb_rhino_horn", "name": "Chifrada de Ferro", "clip": "maul", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 5.0, "cone_angle_deg": 100, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.6, 0.55, 0.5), "vfx": "blood",
+		 "effects": {"knockback": {"dist": 2.0}}},
+		{"id": "mob_wb_rhino_charge", "name": "Investida Couraçada", "clip": "atk_charge", "target": T_DIR, "kind": K_PHYS, "power": 1.5, "cooldown": 13.0, "range": 18.0, "radius": 1.8, "startup": 0.75, "active": 0.15, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.55, 0.5, 0.45), "mob_pick": "far", "vfx": "earth",
+		 "effects": {"dash": 16.0, "stun": {"duration": 0.8}}},
+		{"id": "mob_wb_rhino_stomp", "name": "Pisão da Plataforma", "clip": "slam", "target": T_SELF, "kind": K_PHYS, "power": 1.2, "cooldown": 11.0, "radius": 6.5, "startup": 0.8, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.5, 0.45, 0.4), "vfx": "earth",
+		 "effects": {"slow": {"pct": 40, "duration": 2.5}}},
+		{"id": "mob_wb_rhino_drum", "name": "Tambores de Guerra", "clip": "roar", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.85, 0.25, 0.2), "vfx": "blood",
+		 "effects": {"rally": {"id": "war_cry", "radius": 20.0, "duration": 12.0, "atk_pct": 20.0, "aspd_pct": 20.0, "speed_pct": 10.0}}},
+		{"id": "mob_wb_rhino_spears", "name": "Lanças da Plataforma", "clip": "cast_ground", "target": T_GROUND, "kind": K_PHYS, "power": 1.1, "cooldown": 12.0, "range": 16.0, "radius": 2.2, "startup": 0.7, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.75, 0.7, 0.45), "mob_pick": "far", "vfx": "earth",
+		 "effects": {"barrage": {"count": 4, "radius": 2.2, "delay": 1.3, "spread": 10.0}}},
+		{"id": "mob_wb_rhino_call", "name": "Guerreiros da Plataforma", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.45, 0.5, 0.32), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "wb_platform_warrior", "count": 2, "max": 4, "pick": "soft"}}},
+		# assinatura: três faixas paralelas de atropelo (a do meio na vítima), caem uma depois da outra e derrubam
+		{"id": "mob_wb_rhino_trample", "name": "Atropelo da Horda", "clip": "brace", "target": T_GROUND, "kind": K_PHYS, "power": 1.6, "cooldown": 26.0, "range": 40.0, "radius": 2.0, "startup": 0.6, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(0.7, 0.45, 0.3), "mob_pick": "random", "vfx": "earth", "boss_signature": true,
+		 "effects": {"barrage": {"shape": "line", "count": 3, "width": 4.0, "gap": 3.0, "length": 36.0, "delay": 1.8, "stagger": 0.6,
+			"say": "(os tambores param de uma vez; a estepe inteira treme)"}, "stun": {"duration": 1.0}}},
+		# ---- Lobo-Rei de Ferro (45) ----
+		{"id": "mob_wb_wolf_bite", "name": "Garra de Ferro", "clip": "maul", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 5.0, "cone_angle_deg": 110, "startup": 0.5, "active": 0.15, "recovery": 0.45, "hit_stop_frames": 4, "icon_color": Color(0.55, 0.55, 0.6), "vfx": "blood",
+		 "effects": {"dot": {"dps": 45, "duration": 4}}},
+		{"id": "mob_wb_wolf_leap", "name": "Salto do Rei", "clip": "pounce", "target": T_DIR, "kind": K_PHYS, "power": 1.4, "cooldown": 12.0, "range": 15.0, "radius": 2.2, "startup": 0.7, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.5, 0.5, 0.58), "mob_pick": "far", "vfx": "earth",
+		 "effects": {"dash": 13.0, "slow": {"pct": 40, "duration": 2.0}}},
+		{"id": "mob_wb_wolf_slam", "name": "Queda de Ferro", "clip": "slam", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 11.0, "radius": 6.0, "startup": 0.8, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.45, 0.45, 0.5), "vfx": "earth",
+		 "effects": {"stun": {"duration": 0.6}}},
+		{"id": "mob_wb_wolf_howl", "name": "Uivo da Alcateia", "clip": "roar", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 35.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.55, 0.55, 0.62), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "wb_iron_wolf", "count": 2, "max": 4, "pick": "soft"}}},
+		# assinatura: as runas marcam três caçados (nunca o tanque); a marca segue e explode: espalhem-se
+		{"id": "mob_wb_wolf_hunt", "name": "Marca da Caçada", "clip": "cast_ground", "target": T_SELF, "kind": K_PHYS, "power": 1.4, "cooldown": 24.0, "radius": 0.0, "startup": 0.7, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(1.0, 0.5, 0.2), "vfx": "fire", "boss_signature": true,
+		 "effects": {"mark": {"mode": "spread", "count": 3, "solo_count": 1, "radius": 4.0, "time": 4.0, "linger": 3.0, "tick_power": 0.15, "no_tank": true,
+			"say": "(as runas da armadura acendem: o Lobo-Rei escolhe a caça)"}}},
+		# ---- Gamo de Porcelana da Festa (50) ----
+		{"id": "mob_wb_stag_sweep", "name": "Galhada de Renda", "clip": "maul", "target": T_CONE, "kind": K_PHYS, "power": 1.5, "cooldown": 7.0, "radius": 5.5, "cone_angle_deg": 120, "startup": 0.55, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.95, 0.85, 0.6), "vfx": "blood"},
+		{"id": "mob_wb_stag_glide", "name": "Deslize do Baile", "clip": "atk_charge", "target": T_DIR, "kind": K_PHYS, "power": 1.3, "cooldown": 12.0, "range": 16.0, "radius": 1.8, "startup": 0.7, "active": 0.15, "recovery": 0.5, "hit_stop_frames": 4, "icon_color": Color(0.95, 0.9, 0.85), "mob_pick": "far", "vfx": "lunar",
+		 "effects": {"dash": 14.0, "slow": {"pct": 35, "duration": 2.0}}},
+		{"id": "mob_wb_stag_hooves", "name": "Cascos Dourados", "clip": "slam", "target": T_SELF, "kind": K_PHYS, "power": 1.3, "cooldown": 11.0, "radius": 6.0, "startup": 0.8, "active": 0.2, "recovery": 0.6, "hit_stop_frames": 5, "icon_color": Color(0.95, 0.8, 0.4), "vfx": "earth",
+		 "effects": {"stun": {"duration": 0.5}}},
+		{"id": "mob_wb_stag_lanterns", "name": "Lanternas que Caem", "clip": "roar", "target": T_GROUND, "kind": K_MAG, "power": 1.1, "cooldown": 12.0, "range": 16.0, "radius": 2.4, "startup": 0.7, "active": 0.1, "recovery": 0.5, "icon_color": Color(1.0, 0.75, 0.4), "mob_pick": "random", "vfx": "fire",
+		 "effects": {"barrage": {"count": 4, "radius": 2.4, "delay": 1.4, "spread": 10.0}}},
+		{"id": "mob_wb_stag_call", "name": "Convidados do Baile", "clip": "shout", "target": T_SELF, "kind": K_BUFF, "power": 0.0, "cooldown": 30.0, "radius": 0.0, "startup": 0.8, "active": 0.1, "recovery": 0.5, "icon_color": Color(0.92, 0.88, 0.9), "vfx": "summon",
+		 "effects": {"boss_summon": {"id": "wb_porcelain_guest", "count": 2, "max": 4, "pick": "soft"}}},
+		# assinatura: as lanternas se apagam, menos as que caem no chão; quem estiver fora da luz delas leva o golpe (ilhas)
+		{"id": "mob_wb_stag_flare", "name": "Clarão das Lanternas", "clip": "cast_ground", "target": T_SELF, "kind": K_MAG, "power": 1.8, "cooldown": 28.0, "radius": 0.0, "startup": 0.7, "active": 0.1, "recovery": 0.5, "hit_stop_frames": 5, "icon_color": Color(1.0, 0.85, 0.5), "vfx": "lunar", "boss_signature": true,
+		 "effects": {"islands": {"radius": 3.5, "delay": 3.0, "near_min": 6.0, "near_max": 12.0, "count_min": 4, "slow": {"pct": 40, "duration": 3.0},
+			"say": "(o gamo se curva; as lanternas caem e só a luz delas fica acesa: ENTREM NA LUZ!)"}}},
 	]

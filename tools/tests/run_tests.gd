@@ -3039,7 +3039,7 @@ func _check_cards(gd, sim, save) -> void:
 		if not groups.has(g):
 			bad_g.append(g)
 	check(bad_g.is_empty(), "cards: todo grupo tem 3 comuns em encaixes diferentes e bônus de 2/3 (%s)" % [bad_g])
-	check(n_common == 75 and n_core == 34 and groups.size() == 25, "cards: Ato I = 75 comuns, 34 núcleos, 25 grupos (%d/%d/%d)" % [n_common, n_core, groups.size()])
+	check(n_common == 75 and n_core == 37 and groups.size() == 25, "cards: Ato I = 75 comuns, 37 núcleos (34 + 3 chefes de mundo), 25 grupos (%d/%d/%d)" % [n_common, n_core, groups.size()])
 	var unk: Array = CatalogUtil.unknown_keys.filter(func(k): return str(k).begins_with("CardDef"))
 	check(unk.is_empty(), "cards: CardDef sem chave desconhecida (%s)" % [unk])
 	# 3) encaixar / tirar / núcleos
@@ -3192,6 +3192,59 @@ func _check_cards(gd, sim, save) -> void:
 
 ## Arte das Cartas (GDD cartas.md §9.4): toda carta do Ato I (GameData.cards; sem catálogo, a regra do §3.1 em
 ## card_icons.gd) tem a foto assets/icons/card_<monstro>.png. Refazer: tools/icons/card_icons.tscn -- --band=1-30. `--only=card_icons`
+## Chefes de Mundo (momentos-do-mundo §10): um por faixa, chefe de verdade no topo da faixa, modelo próprio, 3 fases com
+## lacaios 0 XP, fúria, falas; toda skill do kit existe e pede um clipe que o GLB tem (e que tem quadro de impacto); uma
+## assinatura com aviso de som; voz; carta + arte só os do Ato I; na boss_probe no mapa da faixa.
+func _check_world_boss_data(gd) -> void:
+	var probe = load("res://tools/tests/boss_probe.gd")
+	check(MonstersCatalog.WORLD_BOSSES.size() == 6, "chefes de mundo: 6 (um por faixa)")
+	for bid in MonstersCatalog.WORLD_BOSSES:
+		var wb: Dictionary = MonstersCatalog.WORLD_BOSSES[bid]
+		var md: MonsterDef = gd.monsters.get(bid)
+		check(md != null, "chefe de mundo %s existe" % bid)
+		if md == null:
+			continue
+		var band: Array = wb["band"]
+		check(md.is_boss and md.elite_of == "" and md.level == int(band[1]), "%s: chefe de verdade no topo da faixa (%d)" % [bid, md.level])
+		check(md.model == "mob_" + bid and ResourceLoader.exists("res://assets/models/%s.glb" % md.model) and md.scale >= 2.5, "%s: modelo próprio %s, escala %.1f" % [bid, md.model, md.scale])
+		check(md.phases.size() >= 3 and md.berserk_after >= 240.0 and md.intro != "" and md.last_words != "", "%s: 3 fases, fúria só depois de 4 min, falas" % bid)
+		var lt: LootTable = gd.loot_tables.get(md.loot_table)
+		check(lt != null and lt.entries.all(func(e): return gd.items.has(e["item"])) and lt.entries.any(func(e): return float(e["chance"]) >= 1.0), "%s: saque próprio com material garantido" % bid)
+		var mdef: MapDef = gd.maps.get(str(wb["map"]))
+		check(mdef != null and mdef.level_range.x <= int(band[1]) and mdef.level_range.y >= int(band[0]), "%s: mapa %s na faixa" % [bid, wb["map"]])
+		check(probe.BOSSES.get(bid, "") == str(wb["map"]), "%s: na boss_probe no mapa da faixa" % bid)
+		check(Sfx.MOB_VOICE.has(bid), "%s: voz em Sfx.MOB_VOICE" % bid)
+		for ph in md.phases:
+			if ph.has("summon"):
+				var ad: MonsterDef = gd.monsters.get(str(ph["summon"]["id"]))
+				check(ad != null and ad.xp == 0 and ad.loot_table == "" and not ad.is_boss and str(ph["summon"]["id"]) in MonstersCatalog.WORLD_BOSS_ADDS
+					and ResourceLoader.exists("res://assets/models/%s.glb" % ad.model), "%s: lacaio %s 0 XP, sem saque, com modelo" % [bid, ph["summon"]["id"]])
+		# clipes do modelo
+		var inst: Node = (load("res://assets/models/%s.glb" % md.model) as PackedScene).instantiate()
+		var aps: Array = inst.find_children("*", "AnimationPlayer", true, false)
+		var clips: Array = Array((aps[0] as AnimationPlayer).get_animation_list()) if not aps.is_empty() else []
+		inst.free()
+		var kit: Array = md.skill_ids.duplicate()      # cópia: Array(tipado) devolve o MESMO array
+		for ph in md.phases:
+			kit.append_array(ph.get("skills", []))
+		var sigs := 0
+		for sid in kit:
+			var s: SkillDef = gd.skills.get(sid)
+			check(s != null, "%s: skill %s existe" % [bid, sid])
+			if s == null:
+				continue
+			check(s.clip != "" and s.clip in clips and EntityView.IMPACT_FRAME.has(s.clip) and s.clip != "attack", "%s: %s pede o clipe %s, que o modelo tem" % [bid, sid, s.clip])
+			if s.boss_signature:
+				sigs += 1
+				check(Sfx.SIG_WARN.has(sid), "%s: assinatura %s avisa com som (Sfx.SIG_WARN)" % [bid, sid])
+		check(sigs == 1, "%s: uma assinatura (%d)" % [bid, sigs])
+		# cartas: só os do Ato I (o resto vem com as cartas do Ato II/III)
+		var card: String = "card_%s" % bid
+		if md.level <= 30:
+			check(gd.cards.has(card) and gd.cards[card].core and ResourceLoader.exists("res://assets/icons/card_%s.png" % bid), "%s: carta de núcleo do Ato I com arte" % bid)
+		else:
+			check(not gd.cards.has(card), "%s: sem carta até a leva do Ato II/III" % bid)
+
 func _check_card_icons(gd) -> void:
 	var tool = load("res://tools/icons/card_icons.gd")
 	check(tool != null, "card_icons: card_icons.gd carrega")
@@ -3846,6 +3899,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_key_bindings(sim)
 	_reseed(sim, "_check_guild_ui")
 	_check_guild_ui(gd, sim)
+	_reseed(sim, "_check_arena")
+	_check_arena(gd, sim, save)
 	_reseed(sim, "_check_auto_potion")
 	_check_auto_potion(gd, sim, save)
 	_reseed(sim, "_check_hunt_potions")
@@ -3860,6 +3915,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_loading_art(gd)
 	_reseed(sim, "_check_card_icons")
 	_check_card_icons(gd)
+	_reseed(sim, "_check_world_boss_data")
+	_check_world_boss_data(gd)
 	_reseed(sim, "_check_title_screen")
 	_check_title_screen(sim, save)
 	_reseed(sim, "_check_form_clips")
@@ -5302,6 +5359,7 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_tank_pull(gd, sim)
 	_check_bot_leader(gd, sim)
 	_check_roster(gd, sim, save_ref)
+	_check_guild_bank(gd, sim, save_ref)
 	_check_druid_attr_convert(gd)
 	_check_assassin_start_daggers(gd, sim)
 	_check_dash_nodes(gd, sim)
@@ -5623,7 +5681,7 @@ func _check_mount(gd, sim) -> void:
 	var ride_ok: Array = []
 	for mid in gd.maps:
 		var md: MapDef = gd.maps[mid]
-		check(md.no_mount() == (md.parent_map != "" and not md.mounts_ok), "no_mount segue parent_map/mounts_ok em %s" % mid)
+		check(md.no_mount() == ((md.parent_map != "" or md.instance) and not md.mounts_ok), "no_mount segue parent_map/instance/mounts_ok em %s" % mid)
 		if md.parent_map != "" and md.mounts_ok:
 			ride_ok.append(mid)
 	check(ride_ok == ["kharzun_citadel"], "só a Cidadela de Kharzun aceita montaria entre as masmorras (%s)" % str(ride_ok))
@@ -17744,7 +17802,7 @@ func _check_world_layout(gd) -> void:
 	var surface: Array = []
 	for mid in gd.maps:
 		var def: MapDef = gd.maps[mid]
-		if def.interior or def.parent_map != "":
+		if def.interior or def.parent_map != "" or def.instance:     # instância (Campo de Caça da Guilda) não é zona de superfície
 			continue
 		surface.append(mid)
 		check(WORLD.has(mid), "%s: zona de superfície tem lugar no mapa-múndi (run_tests WORLD)" % mid)
@@ -21918,7 +21976,7 @@ func _check_music(gd) -> void:
 	check(missing.is_empty(), "música: todo mapa tem tema (%s)" % [missing])
 	var no_file: Array[String] = []
 	for th in Music.THEMES:
-		if not (ResourceLoader.exists(Music.DIR + th + ".ogg") or ResourceLoader.exists(Music.DIR + th + ".mp3")):
+		if not (ResourceLoader.exists(Music.file_for(th) + ".ogg") or ResourceLoader.exists(Music.file_for(th) + ".mp3")):
 			no_file.append(th)
 	check(no_file.is_empty(), "música: todo tema tem faixa no banco (%s)" % [no_file])
 	check(Music.theme_for("city_port") == "porto" and Music.theme_for("field_coast") == "costa" and Music.theme_for("dg_goblin") == "goblins",
@@ -23280,6 +23338,9 @@ func _check_horde_stats(gd) -> void:
 			# countess_decoy copia os números da Condessa e não tem facção (de propósito: a aura do festim não a pega)
 			if k == "atk" and md.stat_role == "chefe" and md.level >= 47 and (md.faction == Balance.ACT3_FACTION or id == "countess_decoy"):
 				top = 2.5
+			# chefe de mundo (momentos-do-mundo §10): luta aberta de 8-15 pessoas, vida calibrada no boss_probe --party=8
+			if k == "hp" and MonstersCatalog.WORLD_BOSSES.has(id):
+				top = Balance.WORLD_BOSS_HP_MOD_MAX
 			check(k in ["hp", "atk"] and float(md.unit_mods[k]) >= 0.6 and float(md.unit_mods[k]) <= top, "%s: mod_unidade %s em 0,6-%s" % [id, k, str(top)])
 	check(n >= 10, "F2 cobre os 8 monstros e 2 chefes da faixa 30-35 (%d)" % n)
 
@@ -35512,3 +35573,379 @@ func _roster_snap(sim) -> Array:
 			(r["memories"] as Array).map(func(m): return m["kind"])])
 	out.sort()
 	return out
+
+## Banco da Guilda (design/gdd/banco-da-guilda.md §8): pulso de depósito no tier certo, retiradas da Recruta,
+## Contribuição do lendário (e devolução), encomenda de Veterano (bots fora do mundo, resultado reservado), pedido dos
+## bots (Contribuição + afinidade + lembrança), save. `--only=guild_bank`
+func _check_guild_bank(gd, sim, save) -> void:
+	var pl: SimEntity = sim.player
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	var keep := {"lv": pl.level, "pos": pl.position, "gold": pl.gold, "map": pl.map_id, "inv": pl.inventory.duplicate(), "slot": save.slot,
+		"bestiary": pl.bestiary.duplicate()}
+	save.slot = TEST_SLOT
+	_roster_reset(sim, true)
+	sim.gbank.clear()
+	var town: String = gd.town_map_id()
+	if pl.map_id != town:
+		sim._change_map(pl, town, gd.maps[town].spawn_point)
+	pl.level = 30
+	pl.recompute_stats()
+	pl.inventory.clear()
+	pl.gold = 100000
+	sim.roster_start()
+	if sim.social["offer"]["state"] != "pending":
+		sim.social["offer"] = {"state": "none", "guild_id": "", "from": ""}
+		GuildSystem.form(sim)
+	GuildSystem.respond(sim, true)
+	check(not GuildBankSystem.guild(sim).is_empty() and sim.has_method("guild_bank") and not sim.guild_bank().is_empty(), "guild_bank: com guilda a aba Banco tem estado")
+	var members: Array = GuildBankSystem.members(sim)
+	check(members.size() >= 3, "guild_bank: a guilda tem bots do elenco (%d)" % members.size())
+	# --- 1. uma hora de relógio social: pulsos depositam itens do tier de R (Recruta: sem lendário)
+	for i in 360:
+		RosterSystem.tick(sim, 10.0)
+	var R := GuildBankSystem.ref_level(sim)
+	var tier := GuildBankSystem.tier_of(R)
+	var items: Array = sim.gbank["items"]
+	var gear_ok := true
+	var gear_n := 0
+	for bi in items:
+		var it: ItemDef = gd.items[bi["id"]]
+		if it.is_equipment():
+			gear_n += 1
+			gear_ok = gear_ok and not it.is_legendary() and GuildBankSystem.tier_of(it.level_req) == tier
+	var dep_log: int = (sim.gbank["log"] as Array).filter(func(x): return str(x["text"]).contains("depositou")).size()
+	check(items.size() >= Balance.GBANK_WELCOME.x and dep_log >= Balance.GBANK_WELCOME.x and int(sim.gbank["gold"]) > 0,
+		"guild_bank: 1 h de jogo enche o banco (%d itens, %d de ouro)" % [items.size(), int(sim.gbank["gold"])])
+	check(gear_ok, "guild_bank: equipamento depositado é do tier de R=%d (tier %d; %d peças) e nada lendário na Recruta" % [R, tier, gear_n])
+	check(GuildBankSystem.rarity_weights(15.0) == [70.0, 28.0, 2.0] and is_equal_approx(float(GuildBankSystem.rarity_weights(27.5)[1]), 39.0),
+		"guild_bank: raridade pela força F (15: 70/28/2; interpola até 40)")
+	# --- 2. Recruta tira 5; a 6ª recusa com o tempo até a próxima
+	sim.gbank["items"] = []
+	var pool: Array = LootSystem.gear_pool(sim, tier)
+	for i in 6:
+		GuildBankSystem._add(sim, (pool[i] as ItemDef).id, 1, "Bot", false, 0, 0)
+	sim.gbank["takes"] = float(Balance.GBANK_RANKS[0]["takes"])
+	var took := 0
+	for bi in (sim.gbank["items"] as Array).duplicate().slice(0, 5):
+		if sim.guild_bank_take(int(bi["uid"])) == "":
+			took += 1
+	var sixth: String = sim.guild_bank_take(int(sim.gbank["items"][0]["uid"]))
+	check(took == 5 and sixth.contains("próxima em") and (sim.gbank["items"] as Array).size() == 1,
+		"guild_bank: Recruta tira 5 e a 6ª recusa com o tempo (%s)" % sixth)
+	RosterSystem.tick(sim, 3600.0 / float(Balance.GBANK_RANKS[0]["takes"]) + 1.0)
+	check(GuildBankSystem.takes_left(sim) == 1, "guild_bank: a retirada volta no ritmo da patente (%d/h)" % int(Balance.GBANK_RANKS[0]["takes"]))
+	# pilha = 1 retirada até GBANK_STACK_TAKE
+	var mat: String = GuildBankSystem.band_materials(tier)[0]
+	var st := GuildBankSystem._add(sim, mat, Balance.GBANK_STACK_TAKE + 7, "Bot", false, 0, 0)
+	sim.gbank["takes"] = 1.0
+	sim.guild_bank_take(int(st["uid"]))
+	check(pl.inventory.get(mat, 0) == Balance.GBANK_STACK_TAKE and int(st["count"]) == 7 and GuildBankSystem.takes_left(sim) == 0,
+		"guild_bank: pilha tirada leva %d unidades numa retirada" % Balance.GBANK_STACK_TAKE)
+	# --- 3. lendário depositado: Contribuição da fórmula; tirar de volta devolve
+	var leg_id := ""
+	for iid in gd.legendary_pool(pl.class_def, 30):
+		if gd.items[iid].is_legendary():
+			leg_id = iid
+			break
+	var leg: ItemDef = gd.items[leg_id]
+	var want := maxi(int(Balance.GBANK_CONTRIB_MIN["legend"]), int(round(leg.price * Balance.GBANK_CONTRIB_RATE * Balance.GBANK_CONTRIB_LEGEND_MULT)))
+	if not GuildBankSystem.user_of(sim, leg).is_empty():
+		want = int(round(want * Balance.GBANK_USER_BONUS))
+	var c0: int = sim.gbank["contrib"]
+	pl.add_item(leg_id)
+	var dep: String = sim.guild_bank_deposit(leg_id, 1)
+	check(dep == "" and int(sim.gbank["contrib"]) - c0 == want and not pl.has_item(leg_id),
+		"guild_bank: lendário depositado dá %d de Contribuição (%d)" % [want, int(sim.gbank["contrib"]) - c0])
+	check(GuildBankSystem.rank(sim) == GuildBankSystem.rank_for(c0 + want) and int(sim.player_guild().get("contribution", -1)) == c0 + want,
+		"guild_bank: a patente segue a Contribuição (%s)" % sim.guild_bank()["rank_name"])
+	var mine: Dictionary = (sim.gbank["items"] as Array).filter(func(x): return x["id"] == leg_id and x["player"])[0]
+	sim.gbank["takes"] = 1.0
+	sim.guild_bank_take(int(mine["uid"]))
+	check(int(sim.gbank["contrib"]) == c0 and pl.has_item(leg_id), "guild_bank: tirar de volta o próprio depósito devolve a Contribuição")
+	var qid := ""
+	for iid in gd.items:
+		if gd.items[iid].type == ItemDef.Type.QUEST:
+			qid = iid
+			break
+	if qid != "":
+		pl.add_item(qid, 1)
+		check(sim.guild_bank_deposit(qid, 1) != "" and pl.has_item(qid), "guild_bank: item de missão não vai para o banco")
+		pl.remove_item(qid, 1)
+	# --- 4. Veterano libera encomenda; 1 h com 2 bots: somem e o material volta reservado
+	var tg: Dictionary = GuildBankSystem.mission_targets(sim)
+	var target: String = tg["material"][0]
+	var rids: Array = [int(members[0]["rid"]), int(members[1]["rid"])]
+	check(sim.guild_mission_error("material", target, rids, 1) != "", "guild_bank: abaixo de Veterano não manda encomenda")
+	sim.gbank["contrib"] = int(Balance.GBANK_RANKS[GuildBankSystem._rank_index("veterano")]["contrib"])
+	GuildBankSystem._contrib_changed(sim)
+	var g0 := pl.gold
+	var fee := GuildBankSystem.fee(sim, 1.0, 2)
+	var avg := (float(members[0]["level"]) + float(members[1]["level"])) / 2.0
+	var err: String = sim.guild_mission_start("material", target, rids, 1)
+	check(err == "" and pl.gold == g0 - fee, "guild_bank: Veterano manda 2 bots por 1 h (taxa %d) %s" % [fee, err])
+	var gone := rids.all(func(rid): return RosterSystem.entity_of(sim, RosterSystem.entry(sim, rid)) == null \
+		and not sim.entities.values().any(func(e): return e.roster_id == rid))
+	check(gone and sim.guild_mission_away(rids[0]) > 0.0, "guild_bank: os bots da encomenda saem do mundo")
+	check(sim.guild_mission_error("material", target, [int(members[2]["rid"])], 0) != "", "guild_bank: Veterano tem 1 encomenda por vez")
+	for i in 180:
+		RosterSystem.tick(sim, 10.0)
+	check(rids.all(func(rid): return RosterSystem.entity_of(sim, RosterSystem.entry(sim, rid)) == null), "guild_bank: na metade do tempo continuam fora (o elenco não os faz nascer)")
+	for i in 185:
+		RosterSystem.tick(sim, 10.0)
+	var mid: int = int(sim.gbank["missions"][0]["id"]) if not (sim.gbank["missions"] as Array).is_empty() else -1
+	var res: Array = (sim.gbank["items"] as Array).filter(func(x): return int(x["res"]) == mid)
+	var band_lv := float(Balance.COMMON_TIER_LEVELS[GuildBankSystem._mat_tier(target)])
+	var qty := maxi(1, int(round(Balance.GBANK_MAT_PER_BOT_H * 1.0 * 2 * minf(avg / maxf(1.0, band_lv), Balance.GBANK_MISSION_LEVEL_CAP))))
+	check(res.size() == 1 and res[0]["id"] == target and int(res[0]["count"]) == qty, "guild_bank: volta com %d %s reservado no banco" % [qty, target])
+	check(rids.all(func(rid): return RosterSystem.entity_of(sim, RosterSystem.entry(sim, rid)) != null), "guild_bank: os bots voltam ao mundo")
+	var ns: Array = sim.guild_mission_notices()
+	check(ns.size() == 1 and str(ns[0]["text"]) != "" and ns[0]["item"] == target, "guild_bank: aviso de volta com a mensagem do bot (%s)" % (ns[0]["text"] if not ns.is_empty() else "-"))
+	sim.gbank["takes"] = 0.0
+	var have := int(pl.inventory.get(target, 0))
+	check(sim.guild_mission_collect(mid) == "" and int(pl.inventory.get(target, 0)) == have + qty and sim.guild_mission_notices().is_empty(),
+		"guild_bank: \"Pôr na bolsa\" leva o resultado sem gastar retirada")
+	# --- 5. pedido de bot cumprido: Contribuição + afinidade + lembrança
+	GuildBankSystem.refresh_requests(sim)
+	var reqs: Array = (sim.gbank["requests"] as Array).filter(func(x): return x["kind"] == "material")
+	if reqs.is_empty():
+		var q0 := {"id": GuildBankSystem._next_id(sim), "rid": int(members[2]["rid"]), "name": members[2]["name"], "state": "open", "kind": "material",
+			"target": target, "count": 5, "gold": 10, "contrib": int(Balance.GBANK_REQUEST_CONTRIB["material"]), "item": "", "item_n": 0}
+		(sim.gbank["requests"] as Array).append(q0)
+		reqs = [q0]
+	var q: Dictionary = reqs[0]
+	var qr: Dictionary = RosterSystem.entry(sim, int(q["rid"]))
+	var aff0 := int(qr["affinity"])
+	var cc0: int = sim.gbank["contrib"]
+	pl.add_item(q["target"], int(q["count"]))
+	var okq: bool = sim.guild_request_accept(int(q["id"])) == "" and sim.guild_request_deliver(int(q["id"])) == ""
+	check(okq and int(sim.gbank["contrib"]) == cc0 + int(q["contrib"]) and int(qr["affinity"]) > aff0 and qr["memories"].back()["kind"] == "ajudou_pedido",
+		"guild_bank: pedido de %s cumprido dá +%d Contribuição, afinidade e 'ajudou_pedido'" % [q["name"], int(q["contrib"])])
+	# --- 6. save grava e lê banco, Contribuição, encomendas e pedidos
+	GuildBankSystem.refresh_requests(sim)
+	sim.guild_mission_start("material", target, [int(members[2]["rid"])], 0)
+	save.save_player(pl)
+	var d: Dictionary = save.load_data(TEST_SLOT)
+	check(d.get("guild_bank") is Dictionary and d.has("guild_contrib") and d.get("guild_missions") is Array and d.get("guild_requests") is Array,
+		"guild_bank: save grava guild_bank, guild_contrib, guild_missions, guild_requests")
+	var before: Array = _gbank_snap(sim)
+	sim.gbank.clear()
+	GuildBankSystem.from_save(sim, d)
+	check(_gbank_snap(sim) == before and sim.guild_mission_away(int(members[2]["rid"])) > 0.0, "guild_bank: carregar devolve banco, patente, encomenda andando e pedidos")
+	sim.gbank.clear()
+	var old := d.duplicate()
+	for k in ["guild_bank", "guild_contrib", "guild_missions", "guild_requests"]:
+		old.erase(k)
+	GuildBankSystem.from_save(sim, old)
+	check(sim.gbank.is_empty(), "guild_bank: save antigo = banco vazio")
+	# UI pura
+	check(GuildBankUi.rank_text({"rank_name": "Membro", "contrib": 420, "next_contrib": 1000, "next_rank": "Veterano"}).contains("420 / 1000 para Veterano")
+		and GuildMissionCards.card_lines({"name": "Rook", "item": target, "count": 12})[0] == "Rook voltou", "guild_bank: textos da patente e do cartão")
+	# limpa
+	_roster_reset(sim, true)
+	sim.gbank.clear()
+	if pl.map_id != keep["map"]:
+		sim._change_map(pl, keep["map"], keep["pos"])
+	pl.level = keep["lv"]
+	pl.position = keep["pos"]
+	pl.gold = keep["gold"]
+	pl.inventory = keep["inv"]
+	pl.bestiary = keep["bestiary"]
+	pl.recompute_stats()
+	save.slot = keep["slot"]
+
+func _gbank_snap(sim) -> Array:
+	return [(sim.gbank["items"] as Array).map(func(x): return [x["id"], int(x["count"]), int(x["res"])]), int(sim.gbank["gold"]), int(sim.gbank["contrib"]),
+		(sim.gbank["missions"] as Array).map(func(m): return [int(m["id"]), m["state"], m["rids"]]), (sim.gbank["requests"] as Array).map(func(x): return int(x["id"]))]
+
+## Campo de Caça da Guilda (design/gdd/arena-da-guilda.md §8 1-4; ArenaSystem): tamanho/força da leva pela fórmula, Rei e chefe
+## nos marcos, saque só ouro ×3 / cartas / consumíveis (sorteio fixo), botão cinza sem entrada com o tempo até a próxima,
+## grupo morto volta para onde entrou sem perder XP e o recorde vai para o save. `--only=arena`
+func _check_arena(gd, sim, save) -> void:
+	var pl: SimEntity = sim.player
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	var keep := {"lv": pl.level, "pos": pl.position, "map": pl.map_id, "gold": pl.gold, "xp": pl.xp, "slot": save.slot}
+	save.slot = TEST_SLOT
+	var md: MapDef = gd.maps.get(MapsCatalog.GUILD_GROUNDS_ID)
+	check(md != null and md.instance and md.portals.is_empty() and md.spawners.is_empty() and Music.theme_for(md.id) == "arena",
+		"arena: mapa guild_grounds é instância, sem portal nem spawner, tema de música 'arena'")
+	var gates := MapsCatalog.guild_grounds_gates()
+	check(gates.size() == 4 and gates.all(func(g: Vector3): return absf(Vector2(g.x, g.z).length() - 20.0) < 0.6), "arena: 4 portões a 20 m do centro (%s)" % [gates])
+	var ex := MapsCatalog.guild_grounds_exit()
+	check(Vector2(ex.x, ex.z).distance_to(Vector2(0, 16)) < 1.0, "arena: saída perto do portão sul (%s)" % ex)
+	# --- §8.1 fórmula
+	check(ArenaSystem.wave_size(1) == 6 and ArenaSystem.wave_size(10) == 24 and ArenaSystem.wave_size(13) == 30, "arena: leva N = 4 + 2N")
+	check(absf(ArenaSystem.hp_mult(10) / Balance.ARENA_HP_MULT - 1.72) < 0.001 and absf(ArenaSystem.dmg_mult(10) / Balance.ARENA_DMG_MULT - 1.45) < 0.001
+		and absf(ArenaSystem.hp_mult(20) / Balance.ARENA_HP_MULT - 2.52) < 0.001 and absf(ArenaSystem.dmg_mult(20) / Balance.ARENA_DMG_MULT - 1.95) < 0.001,
+		"arena: leva 10 = vida ×1,72 dano ×1,45; leva 20 = ×2,52 / ×1,95 (§4)")
+	check(ArenaSystem.is_elite_wave(5) and not ArenaSystem.is_elite_wave(6) and ArenaSystem.is_boss_wave(10) and not ArenaSystem.is_boss_wave(5),
+		"arena: Rei a cada %d, chefe a cada %d" % [Balance.ARENA_ELITE_EVERY, Balance.ARENA_BOSS_EVERY])
+	for lv in [15, 25, 35, 45]:
+		var pool := ArenaSystem.band_pool(lv)
+		check(not pool.is_empty() and pool.all(func(m: MonsterDef): return not m.is_boss and m.elite_of == "" and not m.dummy),
+			"arena: monstros comuns da faixa no nível %d (%d)" % [lv, pool.size()])
+		var bp := ArenaSystem.boss_pool(lv)
+		check(not bp.is_empty() and bp.all(func(m: MonsterDef): return m.is_boss), "arena: chefe de campo da faixa no nível %d" % lv)
+	# --- guilda do jogador (entrar exige guilda)
+	_roster_reset(sim, true)
+	pl.level = 20
+	sim.roster_start()
+	GuildSystem.form(sim)
+	GuildSystem.respond(sim, true)
+	check(not sim.player_guild().is_empty() and sim.has_method("guild_hunt_field"), "arena: jogador numa guilda e a aba liberada (guild_hunt_field)")
+	# --- §8.3 sem carga: botão cinza com o tempo até a próxima
+	sim.arena["charges"] = 0.25
+	var hf: Dictionary = sim.guild_hunt_field()
+	var bt := GuildUi.hunt_button(hf)
+	var want := Balance.ARENA_CHARGE_MIN * 60.0 * 0.75
+	check(int(hf["charges"]) == 0 and not bool(hf["can_enter"]) and absf(float(hf["next_in"]) - want) < 1.0 and bool(bt["disabled"])
+		and str(bt["text"]).contains(GuildUi.mmss(want)), "arena: sem entrada o botão fica cinza com o tempo até a próxima (%s)" % bt["text"])
+	check(sim.arena_enter([]) != "" and sim.arena_status().is_empty(), "arena: sem entrada não entra")
+	ArenaSystem.tick(sim, Balance.ARENA_CHARGE_MIN * 60.0 * 0.75 + 0.5)
+	hf = sim.guild_hunt_field()
+	check(int(hf["charges"]) == 1 and not bool(GuildUi.hunt_button(hf)["disabled"]), "arena: 1 hora de jogo = 1 entrada (%s)" % hf.get("why", ""))
+	ArenaSystem.tick(sim, Balance.ARENA_CHARGE_MIN * 60.0 * 10.0)
+	check(ArenaSystem.charges(sim) == Balance.ARENA_CHARGES_MAX, "arena: guarda no máximo %d entradas" % Balance.ARENA_CHARGES_MAX)
+	hf = sim.guild_hunt_field()
+	check((hf["suggested"] as Array).size() <= Balance.ARENA_MAX_BOTS and not (hf["suggested"] as Array).is_empty(), "arena: sugere até %d bots (%d)" % [Balance.ARENA_MAX_BOTS, (hf["suggested"] as Array).size()])
+	# --- entra (você + sugeridos)
+	var from_map: String = pl.map_id
+	var from_pos: Vector3 = pl.position
+	var err: String = sim.arena_enter(hf["suggested"])
+	var run: Dictionary = ArenaSystem.run_of(sim)
+	check(err == "" and not run.is_empty() and pl.map_id == md.id and ArenaSystem.charges(sim) == Balance.ARENA_CHARGES_MAX - 1,
+		"arena: entrar gasta 1 entrada e leva o jogador à arena (%s)" % err)
+	if run.is_empty():
+		_roster_reset(sim, true)
+		sim.arena.clear()
+		save.slot = keep["slot"]
+		return
+	var bots: Array = (run["members"] as Array).filter(func(id): return id != pl.id).map(func(id): return sim.entities[id])
+	check(not bots.is_empty() and bots.all(func(b: SimEntity): return b.map_id == md.id and sim.same_party(b, pl)), "arena: os bots escolhidos entram no grupo e na arena (%d)" % bots.size())
+	# leva 1 (pula a pausa)
+	check(sim.arena_next(), "arena: Próxima na pausa")
+	sim.tick(1.0 / 60.0)
+	sim.tick(1.0 / 60.0)
+	run = ArenaSystem.run_of(sim)
+	check(int(run["wave"]) == 1 and int(run["size"]) == ArenaSystem.wave_size(1), "arena: leva 1 com %d monstros" % ArenaSystem.wave_size(1))
+	var a_mob: SimEntity = null
+	for id in run["alive"]:
+		a_mob = sim.entities[id]
+		break
+	check(a_mob != null, "arena: a leva 1 sai pelos portões")
+	if a_mob:
+		var base: MonsterDef = gd.monsters[a_mob.monster_def.id]
+		var band := ArenaSystem.band_mult(int(run["level"]))
+		check(absf(a_mob.monster_def.hp - base.hp * ArenaSystem.hp_mult(1) * band.x) < 0.01 and a_mob.monster_def.level == int(run["level"]) and a_mob.field_mob,
+			"arena: monstro da leva com a vida da fórmula e o nível do grupo")
+		var w10 := ArenaSystem.wave_def(sim, run, base, 10, "")
+		check(absf(w10.hp - base.hp * ArenaSystem.hp_mult(10) * band.x) < 0.01 and absf(w10.atk - base.atk * ArenaSystem.dmg_mult(10) * band.y) < 0.01, "arena: leva 10 com vida/dano da fórmula (× faixa)")
+		check(ArenaSystem.band_mult(15) == ArenaSystem.band_mult(20) and ArenaSystem.band_mult(55) == ArenaSystem.band_mult(50), "arena: ajuste por faixa cobre 1-50+")
+	# --- §8.2 saque: nunca equipamento/material; ouro = normal × 3 (sorteio fixo)
+	var m: Dictionary = sim.maps[md.id]
+	m["loot"].clear()
+	var bad: Array = []
+	var gold_ok := true
+	var kill_md: MonsterDef = gd.monsters[a_mob.monster_def.id] if a_mob else ArenaSystem.band_pool(20)[0]
+	for i in 120:
+		var mob: SimEntity = sim.spawn_monster(kill_md, md.id, Vector3(2, 0, 2))
+		mob.brain = null
+		mob.damage_by[pl.id] = 10.0
+		var st0: int = sim.rng.state
+		var g0: int = sim.rng.randi_range(mob.monster_def.gold_min, mob.monster_def.gold_max)
+		sim.rng.state = st0
+		gold_ok = gold_ok and ArenaSystem.arena_gold(sim, mob.monster_def) == g0 * Balance.ARENA_GOLD_MULT
+		sim._kill(mob, pl)
+	for l in m["loot"]:
+		var it: ItemDef = gd.items.get(str(l["item"]))
+		if str(l["item"]) != "gold" and (it == null or not (it.type in [ItemDef.Type.CONSUMABLE, ItemDef.Type.CARD])):
+			bad.append(l["item"])
+	check(bad.is_empty(), "arena: 120 abates sem equipamento nem material (%s)" % [bad])
+	check(gold_ok, "arena: ouro do abate = ouro normal × %d" % Balance.ARENA_GOLD_MULT)
+	check((m["loot"] as Array).any(func(l): return gd.items.has(str(l["item"])) and gd.items[str(l["item"])].type == ItemDef.Type.CONSUMABLE),
+		"arena: consumíveis caem")
+	m["loot"].clear()
+	# XP pela metade (o mesmo monstro fora da arena dá o dobro)
+	var probe_md: MonsterDef = ArenaSystem.band_pool(20)[0]
+	var xp_in := _arena_xp(sim, pl, probe_md, md.id)
+	var xp_out := _arena_xp(sim, pl, probe_md, from_map)
+	PortalSystem.change_map(sim, pl, md.id, Vector3(1, 0, 1))
+	check(xp_out > 0 and absf(float(xp_in) / xp_out - Balance.ARENA_XP_MULT) < 0.05, "arena: XP pela metade (%d vs %d)" % [xp_in, xp_out])
+	# --- §8.4 morto não renasce em casa; grupo morto volta, sem perder XP, recorde no save
+	var xp0 := pl.xp
+	sim._kill(pl, null)
+	for i in 300:
+		sim.tick(1.0 / 60.0)
+		if ArenaSystem.run_of(sim).is_empty():
+			break
+	check(pl.map_id == md.id and not pl.is_alive() and pl.xp == xp0, "arena: morto fica na arena (espectador) e não perde XP")
+	var ended: Array = []
+	var on_end := func(s: Dictionary): ended.append(s)
+	Events.arena_ended.connect(on_end)
+	for b: SimEntity in bots:
+		if b.is_alive():
+			sim._kill(b, null)
+	sim.tick(1.0 / 60.0)
+	Events.arena_ended.disconnect(on_end)
+	var gid: String = sim.player_guild()["id"]
+	check(ArenaSystem.run_of(sim).is_empty() and pl.map_id == from_map and pl.position.distance_to(from_pos) < 3.0 and pl.is_alive() and pl.xp == xp0,
+		"arena: grupo morto volta para onde entrou, vivo e sem perder XP")
+	check(ended.size() == 1 and str(ended[0]["reason"]) == "wipe" and int(ended[0]["wave"]) == 1 and int(sim.arena["records"][gid]["wave"]) == 1
+		and bool(ended[0]["new_record"]), "arena: resumo do fim e recorde da guilda (leva 1)")
+	check(bots.all(func(b: SimEntity): return b.map_id != md.id), "arena: os bots saem junto")
+	check(sim.map_entities(md.id).all(func(e: SimEntity): return e.kind != SimEntity.Kind.MONSTER), "arena: a arena fica vazia")
+	save.save_player(pl)
+	var d: Dictionary = save.load_data(TEST_SLOT)
+	check(d.get("arena") is Dictionary and int(d["arena"]["records"][gid]["wave"]) == 1 and int(d["arena"]["personal"][pl.name]) == 1,
+		"arena: recorde da guilda e pessoal no save")
+	var keep_ch := float(sim.arena["charges"])
+	ArenaSystem.from_save(sim, d)
+	check(int(sim.arena["records"][gid]["wave"]) == 1 and absf(float(sim.arena["charges"]) - keep_ch) < 0.01, "arena: carregar o save devolve entradas e recordes")
+	ArenaSystem.from_save(sim, {})
+	check(ArenaSystem.charges(sim) == Balance.ARENA_CHARGES_START, "arena: save sem o campo começa com %d entrada" % Balance.ARENA_CHARGES_START)
+	# fechar o jogo no meio: o save grava o lugar de onde entrou
+	sim.arena["charges"] = 1.0
+	check(sim.arena_enter([]) == "", "arena: entra sozinho (sem bots escolhidos)")
+	var place := ArenaSystem.save_place(sim, pl)
+	check(pl.map_id == md.id and str(place["map"]) == from_map, "arena: dentro da arena o save grava o lugar de onde entrou")
+	sim.arena_leave()
+	check(pl.map_id == from_map and ArenaSystem.run_of(sim).is_empty(), "arena: Sair volta para onde entrou")
+	# textos puros do HUD
+	check(ArenaHud.summary_text({"reason": "wipe", "wave": 12, "gold": 900, "cards": 2, "time": 905.0, "record": 12, "new_record": true}).contains("RECORDE"),
+		"arena: resumo do HUD mostra o recorde")
+	check(str(ArenaHud.lines_for({"wave": 10, "phase": "fight", "boss": true, "alive": 5, "waiting": 3})[0]).contains("Chefe"), "arena: faixa da leva 10 mostra o chefe")
+	# limpa
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	_roster_reset(sim, true)
+	sim.arena.clear()
+	pl.level = keep["lv"]
+	pl.gold = keep["gold"]
+	pl.xp = keep["xp"]
+	if pl.map_id != keep["map"]:
+		PortalSystem.change_map(sim, pl, keep["map"], keep["pos"])
+	pl.position = keep["pos"]
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep["slot"]
+
+## XP de um abate solo do jogador neste mapa (monstro do catálogo, sem grupo).
+func _arena_xp(sim, pl: SimEntity, mdef: MonsterDef, map_id: String) -> int:
+	var at := Vector3(3, 0, 3) if map_id == MapsCatalog.GUILD_GROUNDS_ID else ALDARA_FIELD
+	if pl.map_id != map_id:
+		PortalSystem.change_map(sim, pl, map_id, at)
+	var party: int = pl.party_id
+	pl.party_id = -1
+	var mob: SimEntity = sim.spawn_monster(mdef, map_id, pl.position + Vector3(1, 0, 0))
+	mob.brain = null
+	mob.field_mob = true
+	mob.damage_by[pl.id] = 10.0
+	var x0 := pl.xp
+	var l0 := pl.level
+	pl.level = mdef.level
+	mob.level = mdef.level
+	sim._kill(mob, pl)
+	var got := pl.xp - x0
+	pl.level = l0
+	pl.party_id = party
+	return got

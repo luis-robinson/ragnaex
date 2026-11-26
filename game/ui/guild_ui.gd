@@ -12,6 +12,8 @@ static var selected_rid := -1         # Conhecidos: quem está selecionado
 static var found_name := ""           # texto digitado para fundar
 static var found_msg := ""            # resposta da última tentativa de fundar
 static var race_boss := ""            # Rival: chefe escolhido para o desafio
+static var hunt_pick: Array = []      # Campo de Caça: rids escolhidos (vazio = os sugeridos)
+static var hunt_msg := ""             # resposta da última tentativa de entrar
 
 ## [id, título, método da sim que libera a aba ("" = sempre)]. As três últimas esperam as specs
 ## banco-da-guilda / arena-da-guilda / guerra-de-guildas (nomes dos métodos a confirmar com a sim).
@@ -159,6 +161,8 @@ static func build(w: Control, body: VBoxContainer) -> void:
 		"members": _members(w, body)
 		"known": _known(w, body)
 		"rival": _rival(w, body)
+		"hunt": _hunt(w, body)
+		"bank": GuildBankUi.build(w, body)     # Banco da Guilda (guild_bank_ui.gd)
 		_: body.add_child(UiKit.para("Em breve.", 12, UiKit.MUTED))
 
 static func _set_tab(w: Control, t: String) -> void:
@@ -382,3 +386,124 @@ static func race_bosses(level: int) -> Array:
 			out.append(m)
 	out.sort_custom(func(a, b): return a.level < b.level)
 	return out.slice(0, 12)
+
+# --- Campo de Caça (design/gdd/arena-da-guilda.md; Sim.guild_hunt_field / arena_enter) ---------------
+const ROLE_LABELS := {"tank": "Tanque", "healer": "Cura", "dps": "Dano", "caster": "Dano mágico", "ranged": "Distância"}
+const HUNT_COLOR := Color(0.95, 0.75, 0.35)
+
+## "12 min 05 s" (tempo de jogo até a próxima entrada).
+static func mmss(s: float) -> String:
+	var t := int(ceil(maxf(0.0, s)))
+	return "%d min %02d s" % [t / 60, t % 60]
+
+## Botão "Entrar": cinza sem entrada, com o tempo até a próxima (§8.3). Puro (testado).
+static func hunt_button(hf: Dictionary) -> Dictionary:
+	if hf.is_empty():
+		return {"disabled": true, "text": "Entrar"}
+	if int(hf.get("charges", 0)) <= 0:
+		return {"disabled": true, "text": "Sem entradas · próxima em %s" % mmss(float(hf.get("next_in", 0.0)))}
+	if not bool(hf.get("can_enter", false)):
+		return {"disabled": true, "text": "Entrar"}
+	return {"disabled": false, "text": "Entrar (%d/%d)" % [int(hf.get("charges", 0)), int(hf.get("max", 3))]}
+
+## Escolha valida: só rids que ainda são candidatos, até max_bots; vazia = sugeridos.
+static func hunt_selection(hf: Dictionary) -> Array:
+	var ok := {}
+	for c in hf.get("candidates", []):
+		if float(c.get("away", 0.0)) <= 0.0:
+			ok[int(c.get("rid", -1))] = true
+	var pick: Array = hunt_pick.filter(func(r): return ok.has(int(r)))
+	if pick.is_empty() and hunt_pick.is_empty():
+		pick = (hf.get("suggested", []) as Array).duplicate()
+	return pick.slice(0, int(hf.get("max_bots", 4)))
+
+static func _hunt(w: Control, body: VBoxContainer) -> void:
+	var hf := _dict("guild_hunt_field")
+	if hf.is_empty():
+		body.add_child(UiKit.para("Entre numa guilda para usar o Campo de Caça.", 12, UiKit.MUTED))
+		return
+	body.add_child(UiKit.label("Campo de Caça da Guilda", 16, UiKit.GOLD))
+	body.add_child(UiKit.para("Levas sem fim chegam pelos portões, cada uma mais dura. Só cai ouro (×3), cartas e consumíveis; XP pela metade.", 11, UiKit.MUTED))
+	var run: Dictionary = hf.get("run", {})
+	if not run.is_empty():
+		body.add_child(UiKit.label("Corrida em andamento: leva %d" % int(run.get("wave", 0)), 14, HUNT_COLOR))
+		body.add_child(UiKit.button("Sair do Campo", func(): api("arena_leave"); _refresh(w), 150))
+		return
+	var full := int(hf.get("charges", 0)) >= int(hf.get("max", 3))
+	body.add_child(UiKit.label("Entradas: %d/%d%s" % [int(hf.get("charges", 0)), int(hf.get("max", 3)),
+		"" if full else "  ·  próxima em " + mmss(float(hf.get("next_in", 0.0)))], 13, UiKit.TEXT))
+	# quadro de recordes
+	var card := UiKit.panel(Color(0.1, 0.09, 0.14, 0.95), HUNT_COLOR.darkened(0.35))
+	card.name = "HuntRecords"
+	body.add_child(card)
+	var v := VBoxContainer.new()
+	card.add_child(v)
+	var rec: Dictionary = hf.get("record", {})
+	if int(rec.get("wave", 0)) > 0:
+		v.add_child(UiKit.label("Recorde da guilda: leva %d" % int(rec["wave"]), 15, HUNT_COLOR))
+		v.add_child(UiKit.label(", ".join(PackedStringArray((rec.get("names", []) as Array).map(func(x): return str(x)))), 11, UiKit.MUTED))
+	else:
+		v.add_child(UiKit.label("Recorde da guilda: nenhum ainda", 13, UiKit.MUTED))
+	var per: Dictionary = hf.get("personal", {})
+	var parts: Array = []
+	for nm in per:
+		if int(per[nm]) > 0:
+			parts.append("%s %d" % [nm, int(per[nm])])
+	if not parts.is_empty():
+		v.add_child(UiKit.label("Pessoais: " + "  ·  ".join(PackedStringArray(parts)), 11, UiKit.TEXT))
+	var last: Dictionary = hf.get("last", {})
+	if not last.is_empty():
+		v.add_child(UiKit.label(summary_line(last), 11, Color(0.85, 0.8, 0.95)))
+	# grupo
+	var pick := hunt_selection(hf)
+	var cands: Array = hf.get("candidates", [])
+	body.add_child(UiKit.label("Grupo: você + até %d da guilda (%d escolhidos)" % [int(hf.get("max_bots", 4)), pick.size()], 13, UiKit.GOLD))
+	if cands.is_empty():
+		body.add_child(UiKit.para("Nenhum membro da guilda no mundo agora: você entra sozinho.", 11, UiKit.MUTED))
+	for c in cands:
+		var rid := int(c.get("rid", -1))
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.name = "hunt_%d" % rid
+		body.add_child(row)
+		row.add_child(_class_icon(str(c.get("class", "")), 24))
+		var b := UiKit.button("%s  ·  Nv.%d  ·  %s%s" % [c.get("name", "?"), int(c.get("level", 1)), ROLE_LABELS.get(str(c.get("role", "")), str(c.get("role", ""))),
+			"  · no seu grupo" if c.get("in_party", false) else ""], _toggle_pick.bind(w, rid, pick, int(hf.get("max_bots", 4))))
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.toggle_mode = true
+		b.button_pressed = rid in pick
+		var away := float(c.get("away", 0.0))
+		if away > 0.0:                                # banco da guilda: fora numa encomenda
+			b.disabled = true
+			b.button_pressed = false
+			b.text += "  · fora numa encomenda, %d min" % maxi(1, int(ceil(away / 60.0)))
+		row.add_child(b)
+	var st := hunt_button(hf)
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 6)
+	body.add_child(h)
+	var go := UiKit.button(str(st["text"]), func(): hunt_msg = str(api("arena_enter", [pick], "Indisponível.")); hunt_pick = []; _refresh(w), 220)
+	go.name = "HuntEnter"
+	go.disabled = bool(st["disabled"])
+	h.add_child(go)
+	h.add_child(UiKit.button("Sugeridos", func(): hunt_pick = []; _refresh(w), 110))
+	var why := hunt_msg if hunt_msg != "" else (str(hf.get("why", "")) if int(hf.get("charges", 0)) > 0 else "")
+	if why != "":
+		body.add_child(UiKit.para(why, 11, Color(1.0, 0.6, 0.5)))
+
+static func _toggle_pick(w: Control, rid: int, cur: Array, max_bots: int) -> void:
+	var p := cur.duplicate()
+	if rid in p:
+		p.erase(rid)
+	elif p.size() < max_bots:
+		p.append(rid)
+	hunt_pick = p if not p.is_empty() else [-1]          # [-1] = ninguém escolhido (não volta aos sugeridos)
+	_refresh(w)
+
+## Resumo de uma corrida numa linha (janela e aviso do HUD).
+static func summary_line(s: Dictionary) -> String:
+	var why: String = {"wipe": "o grupo caiu", "leave": "saída", "left": "saída"}.get(str(s.get("reason", "")), "")
+	var t := int(float(s.get("time", 0.0)))
+	return "Última: leva %d (%s) · %d ouro · %d carta%s · %d:%02d%s" % [int(s.get("wave", 0)), why, int(s.get("gold", 0)), int(s.get("cards", 0)),
+		"" if int(s.get("cards", 0)) == 1 else "s", t / 60, t % 60, "  · RECORDE!" if s.get("new_record", false) else ""]

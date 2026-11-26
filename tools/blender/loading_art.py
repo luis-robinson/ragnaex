@@ -243,6 +243,9 @@ ZONES = {
                   "hall": {"focus": (10, 58), "lamps": ring_lamps((10, 50), 13.2, skip=(5, 6)) + [(7, 58, 1.0), (13, 58, 1.0)]},
                   "boss": {"id": "crypt_lord", "clip": "buff_focus", "frame": 10, "fwd": 2.5, "turn": -26, "foot": 0.6},
                   "cam": {"at": (10, 54), "h": 1.5, "az": 0, "dist": 27.5, "elev": 10, "pitch": 8, "fov": 40}},
+    # Campo de Caça da Guilda (arena de hordas, build_guild_grounds.py): pátio de treino ao entardecer, visto do sul
+    "guild_grounds": {"name": "Campo de Caça da Guilda", "ground": (0.5, 0.66, 0.4), "mood": "steppe",
+                      "cam": {"at": (0, 2), "az": -24, "dist": 62, "elev": 30, "pitch": 22, "fov": 46}},
     "dg_goblin": {"name": "Grutas Goblin", "ground": (0.34, 0.32, 0.24), "mood": "dungeon", "ambient": (0.85, 0.7, 0.6),
                   "hall": {"focus": (0, 62)},
                   "boss": {"id": "boss_agitator_lord", "clip": "shout", "frame": 12, "at": (4.5, 52), "turn": 30, "foot_col": TORCH},

@@ -1920,3 +1920,17 @@ do chefe. Tirar é grátis. Bots acham, comentam e vendem; nunca encaixam. Regra
 (ganchos novos: família, ao acertar, cura no abate, ouro, dash; `xp_pct` é o stat das Poções de Caça). Interface: aba Cartas da
 janela C e o Bestiário (`game/ui/card_ui.gd`; título por mapa completo, sem poder). Save: `cards`, `bestiary` (opcionais).
 Check `--only=cards`; sonda `tools/tests/card_probe.tscn`; fotos `-- --autostart=<c> --cards_shot=<pasta>`.
+
+## Campo de Caça da Guilda (2026-11-26; GDD `design/gdd/arena-da-guilda.md`) — `ArenaSystem`, `Balance.ARENA_*`
+- Janela da Guilda (O) → aba "Campo de Caça" (`Sim.guild_hunt_field`): você + até 4 bots da guilda (sugere quem já está no seu grupo,
+  tanque, cura e dano; bot fora numa encomenda do banco não entra), entradas (1 por hora de jogo, guarda 3; save sem o campo começa com 1),
+  quadro de recordes (guilda e pessoais). "Entrar" fica cinza sem entrada com o tempo até a próxima.
+- Mapa `guild_grounds` = instância (`MapDef.instance`): sem portal; só quem entrou (party_catchup não puxa outro bot). Levas pelos 4 portões
+  (`MapsCatalog.guild_grounds_gates`, do JSON), tamanho 4 + 2N (30 vivos no máximo), vida × (1 + 0,08(N−1)) e dano × (1 + 0,05(N−1))
+  sobre os monstros comuns de campo de nível ±4 do grupo (nível do grupo), Rei a cada 5, chefe de campo da faixa a cada 10, modificador
+  (Rápidos, Enfurecidos, Escudados, Curandeiros) da 15 em diante. Pausa de 10 s ("Próxima" corta; o ponto de saída perto do portão sul
+  ou "Sair" só na pausa/HUD).
+- Saque: só ouro ×3, cartas (chance normal) e consumíveis (poções/elixires; Poção de Caça rara); XP pela metade. Morrer lá não perde XP;
+  morto assiste até a pausa e volta com 50% se alguém seguir de pé. Grupo todo caído/saída = volta para onde entrou com o resumo;
+  recorde gravado na hora em que a leva começa (fechar o jogo no meio conta). O save nunca grava a posição dentro da arena.
+- Sonda: `tools/tests/arena_probe.tscn -- --level=20,30,40 --runs=5` (meta leva 12-18, 15-25 min, tick ≤ 10 ms com 30 vivos). Check `_check_arena`.

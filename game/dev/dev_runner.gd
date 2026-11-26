@@ -311,9 +311,18 @@ func after_start() -> void:
 	if DevArgs.flag("--boss_film"):     # --boss_film=<chefe>[,..] --out=<pasta>: cada skill do chefe lançada num grupo parado, 3 quadros por skill
 		_smoke_test = false
 		_boss_film(Array(DevArgs.value("--boss_film").split(",")), DevArgs.value("--out"))
+	if DevArgs.flag("--world_boss"):    # --world_boss=<id>[,..] [--world_boss_shot=<pasta>]: chefe de mundo SÓ PARA TESTE (sem nascer na hora ainda)
+		_smoke_test = false
+		_world_boss.call_deferred(Array(DevArgs.value("--world_boss").split(",")), DevArgs.value("--world_boss_shot"))
+	if DevArgs.flag("--arena_shot"):    # --arena_shot=<pasta>: Campo de Caça da Guilda (aba, sem entrada, pausa, leva 10 com chefe, resumo); sai
+		_smoke_test = false
+		_arena_shot(DevArgs.value("--arena_shot"))
 	if DevArgs.flag("--guild_shot"):    # --guild_shot=<pasta>: convite, fundar, janela O (abas), chat Guilda, socorro no minimapa, plaquinhas; sai
 		_smoke_test = false
 		_guild_shot(DevArgs.value("--guild_shot"))
+	if DevArgs.flag("--gbank_shot"):    # --gbank_shot=<pasta> [--gbank_rank=<id>]: banco da guilda (abas, encomendas, cartão de volta); sai
+		_smoke_test = false
+		_gbank_shot(DevArgs.value("--gbank_shot"))
 	if DevArgs.flag("--bot_leader_shot"):    # --bot_leader_shot=<png> [--bot_leader_wait=<s>]: bot líder completa o grupo e fala o plano; foto do chat + janela P
 		_smoke_test = false
 		_bot_leader_shot(DevArgs.value("--bot_leader_shot"))
@@ -1361,6 +1370,62 @@ func _cast_buff_at_start(sid: String) -> void:
 
 ## Investida élfica: leva o jogador à Floresta, solta uma leva e fotografa a marcha na estrada norte e a luta no portão.
 ## O jogador fica de pé no caminho (vida cheia o tempo todo) para a câmera seguir a ação.
+## --arena_shot=<pasta>: Campo de Caça da Guilda com a sim de verdade (Sim.dev_social_demo + convite aceito): aba "Campo de
+## Caça" com entradas e sem entrada, a arena na pausa, a leva 10 com o chefe da faixa e o resumo depois de sair. Imprime ARENA_SHOT.
+func _arena_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p := Sim.player
+	var hud = main.hud
+	await get_tree().create_timer(2.0).timeout
+	Sim.sync()
+	Sim.dev_social_demo(30)
+	Sim.guild_respond(true)
+	for r in Sim.roster:                     # o elenco do demo nasce baixo: a guilda da foto no nível do jogador
+		var be: SimEntity = RosterSystem.entity_of(Sim, r)
+		if be:
+			r["level"] = p.level
+			RosterSystem.set_level(Sim, be, p.level, str(r["build"]))
+	Events.flush(Sim)
+	await get_tree().process_frame
+	if hud.guild_hud and hud.guild_hud.has_method("close_invite"):
+		hud.guild_hud.close_invite()
+	var shot := func(n: String) -> void:
+		await get_tree().create_timer(0.6).timeout
+		get_viewport().get_texture().get_image().save_png(dir.path_join(n + ".png"))
+		print("ARENA_SHOT %s" % n)
+	Sim.sync()
+	Sim.arena["charges"] = 2.4
+	GuildUi.tab = "hunt"
+	hud.windows_script.toggle("guild")
+	await shot.call("a_aba")
+	Sim.sync()
+	Sim.arena["charges"] = 0.3
+	hud.windows_script.refresh_window("guild")
+	await shot.call("a_aba_sem_entrada")
+	hud.windows_script.close("guild")
+	Sim.sync()
+	Sim.arena["charges"] = 1.0
+	var hf: Dictionary = Sim.guild_hunt_field()
+	print("ARENA_SHOT entrar=%s bots=%s" % [Sim.arena_enter(hf.get("suggested", [])), hf.get("suggested", [])])
+	await get_tree().create_timer(2.5).timeout
+	await shot.call("b_pausa")
+	Sim.sync()
+	var run: Dictionary = ArenaSystem.run_of(Sim)
+	run["wave"] = 9                         # pula para a leva 10 (chefe da faixa)
+	p.hp = p.stats.max_hp
+	Sim.arena_next()
+	await get_tree().create_timer(float(DevArgs.value("--arena_wait", "7"))).timeout
+	Sim.sync()
+	print("ARENA_SHOT leva=%s" % [Sim.arena_status()])
+	main.camera.distance = main.camera.distance * 1.15
+	await shot.call("c_leva10_chefe")
+	Sim.sync()
+	Sim.arena_leave()
+	Events.flush(Sim)
+	await get_tree().create_timer(2.5).timeout
+	await shot.call("d_resumo")
+	get_tree().quit()
+
 ## --guild_shot=<pasta>: lado social (bots-com-memoria) com a fonte falsa GuildFake (formatos do wave3-contract):
 ## convite, recusa com "Fundar guilda", aceitar, janela O em cada aba, chat na aba Guilda, pedido de socorro no
 ## minimapa e plaquinhas "[LAN] Nome" / rival ⚔ nos bots perto. Imprime GUILD_SHOT.
@@ -1424,6 +1489,48 @@ func _guild_shot(dir: String) -> void:
 	for e in near.slice(0, 4):
 		print("GUILD_SHOT placa %s" % GuildUi.plate_for(e))
 	GuildUi.src = null
+	get_tree().quit()
+
+## --gbank_shot=<pasta>: Banco da Guilda com a sim de verdade (Sim.dev_gbank_demo: guilda aceita, patente --gbank_rank,
+## pulsos, uma encomenda de volta e outra andando): aba Banco em cada sub-aba, Encomendas, o cartão à esquerda do
+## minimapa e a mensagem do bot. Imprime GBANK_SHOT.
+func _gbank_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p := Sim.player
+	var hud = main.hud
+	await get_tree().create_timer(2.0).timeout
+	Sim.sync()
+	Sim.dev_gbank_demo(32, DevArgs.value("--gbank_rank", "oficial"))
+	Events.flush(Sim)
+	await get_tree().process_frame
+	if hud.guild_hud and hud.guild_hud.has_method("close_invite"):
+		hud.guild_hud.close_invite()           # o demo aceita o convite pela sim: fecha o quadro do convite
+	for id in ["star_ore", "potion_hp_m"]:
+		if GameData.items.has(id):
+			p.add_item(id, 6)
+	var bank: Dictionary = Sim.guild_bank()
+	print("GBANK_SHOT itens=%d ouro=%d patente=%s avisos=%d pedidos=%d" % [(bank.get("items", []) as Array).size(), int(bank.get("gold", 0)),
+		bank.get("rank", ""), (bank.get("notices", []) as Array).size(), (bank.get("requests", []) as Array).size()])
+	var shot := func(n: String) -> void:
+		await get_tree().create_timer(0.6).timeout
+		get_viewport().get_texture().get_image().save_png(dir.path_join(n + ".png"))
+		print("GBANK_SHOT %s" % n)
+	GuildUi.tab = "bank"
+	for sb in ["gear", "card", "material", "gold", "orders"]:
+		GuildBankUi.sub = sb
+		if hud.windows_script.is_open("guild"):
+			hud.windows_script.refresh_window("guild")
+		else:
+			hud.windows_script.toggle("guild")
+		await shot.call("a_banco_" + sb)
+	hud.windows_script.close("guild")
+	var cards: GuildMissionCards = hud.root.get_node_or_null("GuildMissionCards") if hud.get("root") else null
+	await shot.call("b_cartao")
+	if cards:
+		var ns := GuildMissionCards.notices()
+		if not ns.is_empty():
+			cards.open(int(ns[0]["id"]))
+			await shot.call("c_mensagem")
 	get_tree().quit()
 
 ## --bot_leader_shot=<png>: o bot mais perto entra no grupo do jogador e vira líder (BotLeaderSystem); espera
@@ -1683,6 +1790,8 @@ func _boss_film(ids: Array, out: String) -> void:
 		for sp in GameData.maps[mid].spawners:
 			if sp["monster_id"] == bid:
 				at = sp["pos"]
+		if MonstersCatalog.WORLD_BOSSES.has(bid):       # chefe de mundo: lugar provisório do catálogo
+			at = Vector3(float(MonstersCatalog.WORLD_BOSSES[bid]["at"][0]), 0.0, float(MonstersCatalog.WORLD_BOSSES[bid]["at"][1]))
 		Sim._change_map(p, mid, at + Vector3(2.5, 0, 2.0))
 		await get_tree().create_timer(2.0).timeout
 		var m: Dictionary = Sim.maps[mid]
@@ -3981,3 +4090,113 @@ func _grove_hold(p: SimEntity, sec: float, extra: Array = []) -> void:
 		await get_tree().process_frame
 		if Time.get_ticks_msec() >= end:
 			break
+
+## --world_boss=<id>[,<id>...] [--world_boss_shot=<pasta>] (chefes de mundo, momentos-do-mundo §10; SÓ PARA TESTE até a onda 5).
+## Sem pasta: o 1º chefe nasce a 12 m do jogador, no mapa dele, e o jogo segue (lutar à mão).
+## Com pasta: para cada chefe vai ao lugar provisório (MonstersCatalog.WORLD_BOSSES), põe 7 bots do nível dele lutando
+## (cérebro da boss_probe), espera a luta engatar, força a assinatura e tira a foto no meio do aviso (+ uma da luta). Sai no fim.
+func _world_boss(ids: Array, shot_dir: String) -> void:
+	var p: SimEntity = Sim.player
+	if shot_dir == "":
+		var md: MonsterDef = GameData.monsters.get(str(ids[0]))
+		if md == null or not MonstersCatalog.WORLD_BOSSES.has(md.id):
+			push_error("WORLD_BOSS: %s não é chefe de mundo" % str(ids[0]))
+			return
+		Sim.sync()
+		var at: Vector3 = p.position + p.forward() * 12.0
+		var b := Sim.spawn_monster(md, p.map_id, MapGeometry.random_walkable(Sim, Sim.maps[p.map_id]["def"], at, 2.0))
+		print("WORLD_BOSS %s nasceu em %s (%s)" % [md.id, p.map_id, str(b.position)])
+		return
+	DirAccess.make_dir_recursive_absolute(shot_dir)
+	var probe = load("res://tools/tests/boss_probe.gd")
+	for bid in ids:
+		var md: MonsterDef = GameData.monsters.get(str(bid))
+		if md == null or not MonstersCatalog.WORLD_BOSSES.has(md.id):
+			print("WORLD_BOSS %s: não é chefe de mundo" % bid)
+			continue
+		var wb: Dictionary = MonstersCatalog.WORLD_BOSSES[md.id]
+		var mid: String = wb["map"]
+		var home := Vector3(float(wb["at"][0]), 0.0, float(wb["at"][1]))
+		Sim.sync()
+		Sim._change_map(p, mid, home + Vector3(0, 0, 11.0))
+		var arrive := Time.get_ticks_msec() + 2500
+		while Time.get_ticks_msec() < arrive:
+			Sim.sync()
+			p.iframe_left = 1.0
+			await get_tree().process_frame
+		Sim.sync()
+		var m: Dictionary = Sim.maps[mid]
+		m["spawners"].clear()
+		for e in m["entities"].duplicate():
+			if e != p and e.kind != SimEntity.Kind.NPC:
+				Sim.despawn(e)
+		m["hazards"] = []
+		p.brain = null
+		p.level = maxi(p.level, md.level)
+		var boss := Sim.spawn_monster(md, mid, home)
+		var classes: Array = GameData.classes.keys()
+		classes.sort()
+		var bots: Array = []
+		for i in range(7):
+			var ang := TAU * float(i) / 7.0
+			var bot := Sim.spawn_bot(GameData.classes[classes[i % classes.size()]], "Teste%d" % i, mid, home + Vector3(cos(ang), 0, sin(ang)) * 7.0, md.level)
+			var sb = probe.StayBrain.new()
+			sb.setup(bot, Sim.rng)
+			sb.boss_id = boss.id
+			sb.personality = 1.0
+			bot.brain = sb
+			bots.append(bot)
+		boss.aggro_target = bots[0].id
+		boss.aggro_timer = 5.0
+		var fight_until := Time.get_ticks_msec() + 6000
+		while Time.get_ticks_msec() < fight_until:
+			Sim.sync()
+			p.iframe_left = 1.0
+			p.hp = p.stats.max_hp
+			p.position = boss.position + Vector3(0, 0, 5.0)
+			main.camera.distance = 30.0
+			_wb_hide_popups()
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		get_viewport().get_texture().get_image().save_png("%s/%s_luta.png" % [shot_dir, md.id])
+		Sim.sync()
+		var sig: SkillDef = null
+		for s: SkillDef in boss.skills:
+			if s != null and s.boss_signature:
+				sig = s
+		var warn := 1.5
+		if sig:
+			var aim: Vector3 = bots[2].position if bots[2].is_alive() else p.position
+			boss.cooldowns.erase(sig.id)
+			Sim._start_skill(boss, sig, boss.skills.find(sig), aim)
+			var fx := sig.effects
+			for k in ["barrage", "islands", "mark"]:
+				if fx.get(k) is Dictionary:
+					warn = float(fx[k].get("delay", fx[k].get("time", 1.5)))
+		var until := Time.get_ticks_msec() + int((sig.startup if sig else 0.0) * 1000.0 + warn * 600.0)
+		while Time.get_ticks_msec() < until:
+			Sim.sync()
+			p.iframe_left = 1.0
+			p.hp = p.stats.max_hp
+			p.position = boss.position + Vector3(0, 0, 5.0)
+			_wb_hide_popups()
+			await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var path := "%s/%s_assinatura.png" % [shot_dir, md.id]
+		get_viewport().get_texture().get_image().save_png(path)
+		print("WORLD_BOSS_SHOT %s %s hazards=%d hp=%.0f%% -> %s" % [md.id, sig.id if sig else "-", (m.get("hazards", []) as Array).size(), 100.0 * boss.hp / boss.stats.max_hp, path])
+		for e in m["entities"].duplicate():
+			if e != p and e.kind != SimEntity.Kind.NPC:
+				Sim.despawn(e)
+		m["hazards"] = []
+	get_tree().quit()
+
+## Foto de revisão: esconde convites que abrem sozinhos por cima da luta (guilda dos bots).
+func _wb_hide_popups() -> void:
+	for l: Label in main.hud.find_children("*", "Label", true, false):
+		if l.visible and l.text.contains("convidou"):
+			var n: Node = l
+			while n != null and n != main.hud and not (n is PanelContainer or n is Panel):
+				n = n.get_parent()
+			if n is CanvasItem:
+				(n as CanvasItem).visible = false

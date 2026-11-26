@@ -92,7 +92,10 @@ const BOSSES := {"bandit_chief": "field_forest", "crab_king": "field_crab_beach"
 	# Arquivo de Vel'Thar (27-29): A Mesa do Escrivão
 	"boss_azhar_scribe": "dg_archive",
 	# Campo dos Juramentos (24-28): Colina do Estandarte
-	"fallen_bearer": "field_oaths"}
+	"fallen_bearer": "field_oaths",
+	# Chefes de Mundo (momentos-do-mundo §10; luta aberta: --party=8, lugar provisório em MonstersCatalog.WORLD_BOSSES)
+	"ancestral_boar": "city_aldara", "ancient_elk": "field_forest", "ruins_basilisk": "field_ruins",
+	"war_rhino": "field_steppe", "iron_wolf_king": "field_kharzun", "porcelain_stag": "field_parade"}
 ## Chefe sem spawner no mapa da sonda luta no lugar deste (arena provisória). Vazio: todos têm a sala deles.
 const ARENA_AT := {}
 ## field = chefe de campo (dá para solar); elite = monstro forte de missão (sem fases); group = conteúdo de grupo.
@@ -106,6 +109,7 @@ const BANDS := {
 	"group": {"solo_win": [0.2, 0.4], "trio_win": [0.75, 1.0], "trio_time": [30.0, 150.0], "casts": 4.0, "act": 35.0, "adds": 4.0, "off": 10.0, "kite_far": 2.0},
 }
 const LIMIT := 300.0          # s por luta
+const WORLD_LIMIT := 480.0    # s por luta de chefe de mundo (alvo 3-5 min, fúria aos 330 s)
 const DT := 1.0 / 20.0
 const KITE_MIN := 9.5
 const TANK_LOCK := 3.0        # --tank_lock: ameaça do tanque ÷ a maior dos outros
@@ -519,6 +523,10 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 	for sp in m["def"].spawners:
 		if sp["monster_id"] == bid or (sp["monster_id"] == ARENA_AT.get(bid, "") and at == Vector3.ZERO):
 			at = sp["pos"]
+	if MonstersCatalog.WORLD_BOSSES.has(bid):          # chefe de mundo: sem spawner ainda, o lugar provisório do catálogo
+		var wat: Array = MonstersCatalog.WORLD_BOSSES[bid]["at"]
+		at = Vector3(float(wat[0]), 0.0, float(wat[1]))
+	var limit := WORLD_LIMIT if MonstersCatalog.WORLD_BOSSES.has(bid) else LIMIT
 	var wins := 0
 	var times: Array = []
 	var inv_dead := 0
@@ -746,7 +754,7 @@ func _run(bid: String, mid: String, party: int, trials: int, kite: String) -> Di
 		var ward_at := -1.0
 		var ward_kill := -1.0
 		var temper_boss: bool = boss.skills.any(func(s): return s != null and s.effects.get("barrage") is Dictionary and (s.effects["barrage"] as Dictionary).has("empower"))
-		while t < LIMIT and boss.is_alive():
+		while t < limit and boss.is_alive():
 			Sim.tick(DT)
 			t += DT
 			if _ult_off:

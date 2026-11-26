@@ -486,6 +486,7 @@ static func build() -> Array:
 	L.append_array(_viveiro())
 	L.append_array(_archive())
 	L.append_array(_oaths())
+	L.append_array(_world_bosses())
 	L.append_array(_dawn_rests())
 	L.append_array(_dawn_echoes(L))
 	var out: Array = []
@@ -1231,7 +1232,7 @@ static func build_loot() -> Array:
 		_lt("lt_vessaline", [{"item": "hostess_fan", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 8}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.6}]),
 		_lt("lt_sylvare_echo", [{"item": "empty_crown", "chance": 1.0}, {"item": "weeping_porcelain", "chance": 1.0, "min": 4, "max": 5}, {"item": "festim_ribbon", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_stone", "chance": 1.0}, {"item": "legend_coin", "chance": 1.0, "min": 1, "max": 2}]),
 		_lt("lt_dragonling", [{"item": "dragon_scale", "chance": 1.0, "min": 2, "max": 4}, {"item": "golem_core", "chance": 1.0, "min": 1, "max": 2}, {"item": "amulet_golem", "chance": 0.5}, {"item": "elixir_might", "chance": 1.0, "min": 1, "max": 2}, {"item": "crown_spectral", "chance": 0.4}]),
-	] + _marsh_loot() + _viveiro_loot() + _archive_loot() + _oaths_loot() + _dawn_echo_loot()
+	] + _marsh_loot() + _viveiro_loot() + _archive_loot() + _oaths_loot() + _dawn_echo_loot() + _world_boss_loot()
 
 # ======== Brejo das Teias (field_marsh, 12-16, campo opcional ao sul da Floresta; GDD design/gdd/brejo-das-teias.md §3.3) ========
 ## Modelos novos pedidos ao Blender (BLENDER REQUEST C); até o GLB existir, o monstro usa o modelo de reserva recolorido.
@@ -1527,4 +1528,114 @@ static func _dawn_echo_loot() -> Array:
 		_lt("lt_echo_ghoul_giant", [{"item": "holy_silver", "chance": 1.0, "min": 1, "max": 2}, {"item": "rot_gel", "chance": 1.0, "min": 2, "max": 3}, {"item": "dawn_shard", "chance": 0.1}, {"item": "elixir_might", "chance": 0.2}]),
 		_lt("lt_echo_death_knight", [{"item": "holy_silver", "chance": 1.0, "min": 1, "max": 2}, {"item": "bone_shard", "chance": 1.0, "min": 2, "max": 3}, {"item": "dawn_shard", "chance": 0.12}, {"item": "elixir_might", "chance": 0.2}]),
 		_lt("lt_echo_frost_mage", [{"item": "holy_silver", "chance": 1.0, "min": 2, "max": 3}, {"item": "ghost_essence", "chance": 1.0, "min": 2, "max": 3}, {"item": "dawn_shard", "chance": 0.15}, {"item": "elixir_might", "chance": 0.2}]),
+	]
+
+# ======== Chefes de Mundo (GDD design/gdd/momentos-do-mundo.md §3.1/§9-§10): um por faixa, luta aberta de 8-15 ========
+## Feitos para a multidão (BOSS_CROWD_MULT já escala o dano até PARTY_MAX). Sem spawner ainda: o nascimento com hora marcada,
+## o anúncio e os prêmios por participação são da onda 5. Hoje: `--world_boss=<id>` (DevRunner) e a boss_probe.
+## id -> {map = zona da faixa, at = [x, z] do lugar de nascer provisório (o da sonda: clareira com 13 m livres em volta), band = [de, até]}.
+const WORLD_BOSSES := {
+	"ancestral_boar": {"map": "city_aldara", "at": [-84.0, 24.0], "band": [1, 10]},
+	"ancient_elk": {"map": "field_forest", "at": [78.0, 18.0], "band": [10, 20]},
+	"ruins_basilisk": {"map": "field_ruins", "at": [-72.0, 42.0], "band": [20, 30]},
+	"war_rhino": {"map": "field_steppe", "at": [72.0, -54.0], "band": [30, 40]},
+	"iron_wolf_king": {"map": "field_kharzun", "at": [84.0, 42.0], "band": [40, 45]},
+	"porcelain_stag": {"map": "field_parade", "at": [30.0, 77.0], "band": [45, 50]},
+}
+## Lacaios dos chefes de mundo (0 XP, sem saque).
+const WORLD_BOSS_ADDS := ["wb_boar_kin", "wb_crystal_deer", "wb_ruin_statue", "wb_platform_warrior", "wb_iron_wolf", "wb_porcelain_guest"]
+
+static func _world_bosses() -> Array:
+	return [
+		# ---- Javali Ancestral (Vale de Aldara, 1-10): trilha de investidas (o chefe corre as faixas) ----
+		{"id": "ancestral_boar", "name": "Javali Ancestral", "level": 10, "hp": 210000, "atk": 44, "def": 12, "mdef": 8,
+		 "move_speed": 4.6, "attack_range": 3.6, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 1500, "aggro_range": 12.0, "leash_range": 40.0,
+		 "radius": 2.0, "scale": 3.0, "color": Color(0.45, 0.3, 0.2), "shape": "box", "is_boss": true, "berserk_after": 330, "loot_table": "lt_ancestral_boar",
+		 "gold_min": 80, "gold_max": 140, "model": "mob_ancestral_boar",
+		 "skill_ids": ["mob_wb_boar_gore", "mob_wb_boar_stomp", "mob_wb_boar_rush", "mob_wb_boar_trail"] as Array[String],
+		 "intro": "(o chão do Vale treme; o javali mais velho do mundo bufa e raspa a terra com o casco)",
+		 "last_words": "(o Javali Ancestral se deita devagar, como quem volta a dormir debaixo do Vale)",
+		 "phases": [{"hp": 0.7, "say": "(um grunhido fundo: a vara inteira responde do mato!)", "skills": ["mob_wb_boar_call"], "summon": {"id": "wb_boar_kin", "count": 2, "max": 4}},
+			{"hp": 0.4, "say": "(os javalis da vara fecham a roda em volta do velho)", "ward": 0.5, "summon": {"id": "wb_boar_kin", "count": 2, "max": 4, "pick": "far"}},
+			{"hp": 0.15, "say": "GRRRAAOOONF!", "enrage": 1.3}]},
+		# ---- Alce Ancião (Floresta Sombria, 10-20): cristais que brotam em anéis ----
+		{"id": "ancient_elk", "name": "Alce Ancião", "level": 20, "hp": 600000, "atk": 76, "def": 20, "mdef": 18,
+		 "move_speed": 4.8, "attack_range": 3.8, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 4000, "aggro_range": 12.0, "leash_range": 40.0,
+		 "radius": 2.0, "scale": 3.0, "color": Color(0.5, 0.42, 0.32), "shape": "box", "is_boss": true, "berserk_after": 330, "loot_table": "lt_ancient_elk",
+		 "gold_min": 200, "gold_max": 340, "model": "mob_ancient_elk",
+		 "skill_ids": ["mob_wb_elk_antlers", "mob_wb_elk_trample", "mob_wb_elk_shards", "mob_wb_elk_eruption"] as Array[String],
+		 "intro": "(os chifres de cristal acendem um por um; a floresta inteira fica em silêncio)",
+		 "last_words": "(os cristais se apagam devagar e caem como neve sobre o musgo)",
+		 "phases": [{"hp": 0.7, "say": "(o Alce Ancião brama: cervos de cristal saem das sombras!)", "skills": ["mob_wb_elk_call", "mob_wb_elk_bellow"], "summon": {"id": "wb_crystal_deer", "count": 2, "max": 4}},
+			{"hp": 0.4, "say": "(os cervos de cristal cercam o velho alce, cabeças baixas)", "ward": 0.5, "summon": {"id": "wb_crystal_deer", "count": 2, "max": 4, "pick": "soft"}},
+			{"hp": 0.15, "say": "(a galhada inteira brilha, cegante)", "enrage": 1.3}]},
+		# ---- Basilisco das Ruínas (Bastião da Aurora, 20-30): olhar que petrifica (faixa larga, 2 s para sair) ----
+		{"id": "ruins_basilisk", "name": "Basilisco das Ruínas", "level": 30, "hp": 1200000, "atk": 125, "def": 34, "mdef": 30,
+		 "move_speed": 4.4, "attack_range": 3.8, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 9000, "aggro_range": 12.0, "leash_range": 40.0,
+		 "radius": 2.0, "scale": 3.0, "color": Color(0.55, 0.55, 0.5), "shape": "box", "is_boss": true, "berserk_after": 330, "loot_table": "lt_ruins_basilisk",
+		 "gold_min": 400, "gold_max": 650, "model": "mob_ruins_basilisk",
+		 "skill_ids": ["mob_wb_bas_bite", "mob_wb_bas_tail", "mob_wb_bas_rush", "mob_wb_bas_gaze"] as Array[String],
+		 "intro": "(as pedras das ruínas se mexem: era um lagarto o tempo todo, e os olhos dele se abrem)",
+		 "last_words": "(os olhos do basilisco viram pedra também; as ruínas ficam um pouco maiores)",
+		 "phases": [{"hp": 0.7, "say": "(o basilisco sibila: as estátuas das ruínas descem dos pedestais!)", "skills": ["mob_wb_bas_call", "mob_wb_bas_spit"], "summon": {"id": "wb_ruin_statue", "count": 2, "max": 4}},
+			{"hp": 0.4, "say": "(as estátuas fecham um muro de pedra em volta dele)", "ward": 0.5, "summon": {"id": "wb_ruin_statue", "count": 2, "max": 4, "pick": "soft"}},
+			{"hp": 0.15, "say": "(a garganta do basilisco incha, verde e brilhante)", "enrage": 1.3}]},
+		# ---- Rinoceronte de Guerra da Horda (Estepes de Cinza, 30-40): atropelo em faixas + tambores ----
+		{"id": "war_rhino", "name": "Rinoceronte de Guerra da Horda", "level": 40, "stat_role": "chefe", "unit_mods": {"hp": 22.0, "atk": 0.95}, "faction": "horde",
+		 "move_speed": 4.6, "attack_range": 3.8, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 12000, "aggro_range": 12.0, "leash_range": 40.0,
+		 "radius": 2.0, "scale": 3.0, "color": Color(0.45, 0.42, 0.4), "shape": "box", "is_boss": true, "berserk_after": 330, "loot_table": "lt_war_rhino",
+		 "gold_min": 900, "gold_max": 1400, "model": "mob_war_rhino", "coin_chance": 1.0, "coin_min": 4, "coin_max": 6,
+		 "skill_ids": ["mob_wb_rhino_horn", "mob_wb_rhino_charge", "mob_wb_rhino_stomp", "mob_wb_rhino_trample"] as Array[String],
+		 "intro": "(os tambores na plataforma começam a bater; o rinoceronte abaixa o chifre de ferro)",
+		 "last_words": "(o rinoceronte tomba; os tambores da plataforma rolam pela estepe, um último toque)",
+		 "phases": [{"hp": 0.7, "say": "(a bandeira sacode: os guerreiros pulam da plataforma!)", "skills": ["mob_wb_rhino_call", "mob_wb_rhino_drum", "mob_wb_rhino_spears"], "summon": {"id": "wb_platform_warrior", "count": 2, "max": 4}},
+			{"hp": 0.4, "say": "(os guerreiros cercam a fera, escudos erguidos)", "ward": 0.5, "summon": {"id": "wb_platform_warrior", "count": 2, "max": 4, "pick": "far"}},
+			{"hp": 0.15, "say": "(os tambores batem cada vez mais rápido)", "enrage": 1.3}]},
+		# ---- Lobo-Rei de Ferro (Monte Kharzun, 40-45): marca da caçada + a matilha ----
+		{"id": "iron_wolf_king", "name": "Lobo-Rei de Ferro", "level": 45, "stat_role": "chefe", "unit_mods": {"hp": 10.0, "atk": 0.9},
+		 "move_speed": 5.4, "attack_range": 3.6, "attack_cooldown": 1.3, "attack_startup": 0.4, "xp": 14000, "aggro_range": 12.0, "leash_range": 40.0,
+		 "radius": 1.9, "scale": 2.8, "color": Color(0.35, 0.38, 0.45), "shape": "box", "is_boss": true, "berserk_after": 330, "loot_table": "lt_iron_wolf_king",
+		 "gold_min": 1100, "gold_max": 1600, "model": "mob_iron_wolf_king", "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
+		 "skill_ids": ["mob_wb_wolf_bite", "mob_wb_wolf_leap", "mob_wb_wolf_slam", "mob_wb_wolf_hunt"] as Array[String],
+		 "intro": "(as runas da armadura acendem em brasa; o lobo gigante arrasta a corrente partida do colar)",
+		 "last_words": "(um uivo longo; as runas se apagam e a montanha responde em eco)",
+		 "phases": [{"hp": 0.7, "say": "(o Lobo-Rei uiva: a matilha de ferro desce a encosta!)", "skills": ["mob_wb_wolf_howl"], "summon": {"id": "wb_iron_wolf", "count": 2, "max": 4}},
+			{"hp": 0.4, "say": "(os lobos de ferro rodeiam o rei, rosnando)", "ward": 0.5, "summon": {"id": "wb_iron_wolf", "count": 2, "max": 4, "pick": "soft"}},
+			{"hp": 0.15, "say": "(as runas brilham inteiras: o rei não recua mais)", "enrage": 1.3}]},
+		# ---- Gamo de Porcelana da Festa (Avenida do Cortejo, 45-50): só a luz das lanternas salva ----
+		{"id": "porcelain_stag", "name": "Gamo de Porcelana da Festa", "level": 50, "stat_role": "chefe", "unit_mods": {"hp": 18.0, "atk": 0.78}, "faction": Balance.ACT3_FACTION,
+		 "move_speed": 5.0, "attack_range": 3.8, "attack_cooldown": 1.4, "attack_startup": 0.45, "xp": 16000, "aggro_range": 12.0, "leash_range": 40.0,
+		 "radius": 2.0, "scale": 3.0, "color": Color(0.95, 0.93, 0.9), "shape": "box", "is_boss": true, "berserk_after": 330, "loot_table": "lt_porcelain_stag",
+		 "gold_min": 1300, "gold_max": 1900, "model": "mob_porcelain_stag", "coin_chance": 1.0, "coin_min": 5, "coin_max": 8,
+		 "skill_ids": ["mob_wb_stag_sweep", "mob_wb_stag_glide", "mob_wb_stag_hooves", "mob_wb_stag_flare"] as Array[String],
+		 "intro": "(o gamo branco faz uma reverência de baile; as lanternas da galhada se acendem juntas)",
+		 "last_words": "(a porcelana racha em veios de ouro; as lanternas sobem sozinhas para o céu da festa)",
+		 "phases": [{"hp": 0.7, "say": "(sinos tocam: convidados mascarados entram dançando no baile do gamo!)", "skills": ["mob_wb_stag_call", "mob_wb_stag_lanterns"], "summon": {"id": "wb_porcelain_guest", "count": 2, "max": 4}},
+			{"hp": 0.4, "say": "(os convidados dão as mãos numa roda em volta do gamo)", "ward": 0.5, "summon": {"id": "wb_porcelain_guest", "count": 2, "max": 4, "pick": "far"}},
+			{"hp": 0.15, "say": "(os veios de ouro acendem: a festa não pode acabar)", "enrage": 1.3}]},
+		# ---- lacaios (0 XP, sem saque) ----
+		{"id": "wb_boar_kin", "name": "Javali da Vara Ancestral", "level": 9, "hp": 900, "atk": 22, "def": 6, "mdef": 3, "move_speed": 4.6, "attack_range": 1.7, "attack_cooldown": 1.3, "attack_startup": 0.3, "xp": 0, "aggro_range": 16.0, "leash_range": 45.0,
+		 "radius": 0.6, "scale": 1.15, "color": Color(0.42, 0.3, 0.22), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_boar"},
+		{"id": "wb_crystal_deer", "name": "Cervo de Cristal", "level": 19, "hp": 2400, "atk": 44, "def": 14, "mdef": 12, "move_speed": 5.0, "attack_range": 1.8, "attack_cooldown": 1.3, "attack_startup": 0.3, "xp": 0, "aggro_range": 16.0, "leash_range": 45.0,
+		 "radius": 0.6, "scale": 1.15, "color": Color(0.6, 0.85, 0.85), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_deer"},
+		{"id": "wb_ruin_statue", "name": "Estátua Desperta", "level": 29, "hp": 5200, "atk": 72, "def": 34, "mdef": 20, "move_speed": 3.8, "attack_range": 2.0, "attack_cooldown": 1.5, "attack_startup": 0.45, "xp": 0, "aggro_range": 16.0, "leash_range": 45.0,
+		 "radius": 0.65, "scale": 1.1, "color": Color(0.62, 0.6, 0.55), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_golem"},
+		{"id": "wb_platform_warrior", "name": "Guerreiro da Plataforma", "level": 39, "hp": 3600, "atk": 90, "def": 28, "mdef": 16, "faction": "horde", "move_speed": 5.0, "attack_range": 2.0, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 0, "aggro_range": 16.0, "leash_range": 45.0,
+		 "radius": 0.55, "scale": 1.05, "color": Color(0.45, 0.5, 0.32), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_orc_warrior"},
+		{"id": "wb_iron_wolf", "name": "Lobo de Ferro", "level": 44, "hp": 4200, "atk": 104, "def": 32, "mdef": 18, "move_speed": 6.0, "attack_range": 1.9, "attack_cooldown": 1.0, "attack_startup": 0.3, "xp": 0, "aggro_range": 16.0, "leash_range": 45.0,
+		 "radius": 0.55, "scale": 1.05, "color": Color(0.4, 0.42, 0.48), "shape": "box", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_dire_wolf"},
+		{"id": "wb_porcelain_guest", "name": "Convidado de Porcelana", "level": 49, "hp": 5400, "atk": 118, "def": 36, "mdef": 26, "faction": Balance.ACT3_FACTION, "move_speed": 5.2, "attack_range": 2.0, "attack_cooldown": 1.2, "attack_startup": 0.35, "xp": 0, "aggro_range": 16.0, "leash_range": 45.0,
+		 "radius": 0.45, "scale": 1.0, "color": Color(0.92, 0.88, 0.9), "shape": "capsule", "loot_table": "", "gold_min": 0, "gold_max": 0, "model": "mob_reveler"},
+	]
+
+## Saque dos chefes de mundo: material da faixa garantido (receita do tier N usa o campo N). O prêmio por participação
+## (todo mundo acima de WORLD_BOSS_SHARE_MIN) é da onda 5; até lá cai como chefe comum.
+static func _world_boss_loot() -> Array:
+	return [
+		_lt("lt_ancestral_boar", [{"item": "boar_tusk", "chance": 1.0, "min": 5, "max": 8}, {"item": "iron_ore", "chance": 1.0, "min": 3, "max": 5}, {"item": "elixir_might", "chance": 0.6}]),
+		_lt("lt_ancient_elk", [{"item": "heartwood", "chance": 1.0, "min": 2, "max": 4}, {"item": "elf_steel", "chance": 1.0, "min": 4, "max": 6}, {"item": "elixir_might", "chance": 1.0}]),
+		_lt("lt_ruins_basilisk", [{"item": "dawn_shard", "chance": 1.0, "min": 2, "max": 3}, {"item": "holy_silver", "chance": 1.0, "min": 6, "max": 9}, {"item": "elixir_might", "chance": 1.0}]),
+		_lt("lt_war_rhino", [{"item": "orc_steel", "chance": 1.0, "min": 6, "max": 9}, {"item": "troll_tusk", "chance": 1.0, "min": 3, "max": 5}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.3}]),
+		_lt("lt_iron_wolf_king", [{"item": "dire_pelt", "chance": 1.0, "min": 4, "max": 6}, {"item": "ghar_badge", "chance": 1.0, "min": 2, "max": 4}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.4}]),
+		_lt("lt_porcelain_stag", [{"item": "weeping_porcelain", "chance": 1.0, "min": 3, "max": 4}, {"item": "festim_ribbon", "chance": 1.0, "min": 5, "max": 7}, {"item": "elixir_might", "chance": 1.0}, {"item": "legend_coin", "chance": 0.5}]),
 	]

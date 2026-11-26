@@ -10,7 +10,7 @@ extends RefCounted
 ## Entrada do elenco (salva): rid, name, class, build, personality, level, look, affinity, memories, rival, guild.
 ## Só em tempo de jogo: entity_id, line_at, saved_at, group_at, loot_at, greet_at.
 
-const MEMORY_KINDS := ["salvou", "grupo", "abandonou", "ajudou_pedido", "perdeu_saque", "corrida"]
+const MEMORY_KINDS := ["salvou", "grupo", "abandonou", "ajudou_pedido", "perdeu_saque", "corrida", "presente"]
 const SAVE_KEYS := ["rid", "name", "class", "build", "personality", "level", "look", "affinity", "memories", "rival", "guild"]
 
 # ---------------------------------------------------------------------------
@@ -228,7 +228,8 @@ static func _free_name(sim: WorldSim, taken: Dictionary = {}) -> String:
 static func bind(sim: WorldSim) -> void:
 	var by_name := {}
 	for r: Dictionary in sim.roster:
-		by_name[r["name"]] = r
+		if not GuildBankSystem.is_away(sim, int(r["rid"])):      # fora numa encomenda do banco: fica sem corpo
+			by_name[r["name"]] = r
 	for e: SimEntity in sim.entities.values():
 		if e.kind != SimEntity.Kind.BOT or e.owner_id >= 0:
 			continue
@@ -244,6 +245,8 @@ static func bind(sim: WorldSim) -> void:
 				e.roster_id = -1
 			e.name = _free_name(sim)               # homônimo descartável
 	for r: Dictionary in sim.roster:
+		if GuildBankSystem.is_away(sim, int(r["rid"])):
+			continue
 		var e: SimEntity = sim.entities.get(int(r["entity_id"]))
 		if e == null or e.roster_id != r["rid"]:
 			e = _spawn(sim, r)
@@ -371,6 +374,7 @@ static func update(sim: WorldSim, step: float) -> void:
 	_help_update(sim)
 	_greet(sim)
 	GuildSystem.update(sim, step)
+	GuildBankSystem.update(sim, step)      # banco da guilda: retiradas, pulso, encomendas, pedidos
 
 ## Nível/build vêm do bot no mundo; bot que sumiu (despawn) nasce de novo.
 static func _sync(sim: WorldSim) -> void:
@@ -378,7 +382,7 @@ static func _sync(sim: WorldSim) -> void:
 	for r: Dictionary in sim.roster:
 		var e := entity_of(sim, r)
 		if e == null:
-			lost = true
+			lost = lost or not GuildBankSystem.is_away(sim, int(r["rid"]))
 			continue
 		r["level"] = e.level
 		r["build"] = e.build_id
@@ -502,6 +506,7 @@ static func on_kill(sim: WorldSim, mob: SimEntity, killer: SimEntity) -> void:
 					r["group_at"] = sim.social["clock"]
 					remember(sim, r, "grupo", {"boss": md.name})
 		_race_won(sim, md)
+		GuildBankSystem.on_boss_kill(sim, md)      # pedidos de abate do quadro da guilda
 		celebrate(sim, "boss", {"boss": md.name})
 	else:
 		var rr := rival_entry(sim)

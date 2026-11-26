@@ -41,6 +41,8 @@ var roster_on := false
 var roster: Array = []             # elenco fixo do save: entradas (RosterSystem; formato no wave3-contract.md)
 var guilds: Dictionary = {}        # guild_id -> guilda (GuildSystem): a do elenco/jogador e as de bots do mundo
 var social: Dictionary = {}        # relógio social, rival, convite da guilda, pedido de socorro, títulos (RosterSystem)
+var arena: Dictionary = {}         # Campo de Caça da Guilda (ArenaSystem): entradas, recordes, corrida em andamento
+var gbank: Dictionary = {}         # Banco da Guilda (GuildBankSystem): itens, ouro, Contribuição, encomendas, pedidos
 
 ## Semente fixa já na criação: WorldSim.new() fora da árvore (testes, sondas) nunca roda _ready,
 ## e um RandomNumberGenerator novo nasce com semente aleatória (sorteios mudavam de uma execução para outra).
@@ -134,6 +136,8 @@ func reset_world() -> void:
 	roster.clear()
 	guilds.clear()
 	social.clear()
+	arena.clear()
+	gbank.clear()
 
 # ----------------------------------------------------------------------------
 # MAPAS
@@ -620,6 +624,8 @@ func tick(dt: float) -> void:
 	PortalSystem.process_map_changes(self)
 	PartySystem.party_catchup(self, dt)
 	BotChat.update(self)
+	if player != null or not arena.is_empty():
+		ArenaSystem.tick(self, dt)           # Campo de Caça: entradas (1 por hora) e a corrida em andamento
 	if roster_on:
 		RosterSystem.tick(self, dt)          # elenco, rival, guilda, pedido de socorro (passada a cada ROSTER_UPDATE_S)
 	if not invites.is_empty():
@@ -2250,8 +2256,9 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 		ElementalSystem.on_died(self, e)
 	elif e.kind == SimEntity.Kind.PLAYER:
 		Events.post(&"notification", "Você morreu. Renascendo %s..." % BotsCatalog.place_words(map_def(PortalSystem.home_of(e)["map"]).name)["em"])
-		var loss := int(e.xp * Balance.DEATH_XP_PENALTY)
-		e.xp = maxi(0, e.xp - loss)
+		if not ArenaSystem.in_run(self, e):          # Campo de Caça: morrer é treino, sem perder XP (§3.6)
+			var loss := int(e.xp * Balance.DEATH_XP_PENALTY)
+			e.xp = maxi(0, e.xp - loss)
 		BotChat.party_event(self, e, "player_died")
 	elif e.kind == SimEntity.Kind.BOT:
 		if BotChat.in_player_party(self, e):
@@ -2346,6 +2353,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				e.threat.clear()
 				e.heal_full()
 				Events.post(&"entity_respawned", e.id)
+		elif not arena.is_empty() and ArenaSystem.holds(self, e):
+			pass                                         # Campo de Caça: morto assiste até a pausa entre levas
 		elif e.res_hold > 0.0:
 			e.res_hold -= dt                             # um Bispo conjura o Retorno: espera em vez de renascer
 		elif e.dead_time >= Balance.PLAYER_RESPAWN_TIME + (2.0 if e.kind == SimEntity.Kind.BOT else 0.0):
@@ -3058,3 +3067,67 @@ func rival_challenge_cancel() -> void:
 ## Só revisão/fotos: elenco ligado, convite da guilda pendente e um pedido de socorro perto do jogador (nível `level` se > 0).
 func dev_social_demo(level: int) -> void:
 	RosterSystem.dev_demo(self, level)
+# Banco da Guilda (GuildBankSystem; design/gdd/banco-da-guilda.md). Estado da aba Banco ({} = sem guilda).
+func guild_bank() -> Dictionary:
+	return GuildBankSystem.view(self)
+func guild_bank_take(uid: int) -> String:
+	return GuildBankSystem.take(self, uid)
+func guild_bank_take_error(uid: int) -> String:
+	return GuildBankSystem.take_error(self, uid)
+func guild_bank_deposit(item_id: String, count: int = 1) -> String:
+	return GuildBankSystem.deposit(self, item_id, count)
+func guild_bank_deposit_error(item_id: String, count: int = 1) -> String:
+	return GuildBankSystem.deposit_error(self, item_id, count)
+func guild_bank_contrib_of(item_id: String) -> int:
+	var it: ItemDef = GameData.items.get(item_id)
+	return GuildBankSystem.contrib_of(it) if it else 0
+func guild_bank_take_gold(amount: int) -> String:
+	return GuildBankSystem.take_gold(self, amount)
+func guild_bank_deposit_gold(amount: int) -> String:
+	return GuildBankSystem.deposit_gold(self, amount)
+func guild_mission_start(kind: String, target: String, rids: Array, time_i: int) -> String:
+	return GuildBankSystem.mission_start(self, kind, target, rids, time_i)
+func guild_mission_error(kind: String, target: String, rids: Array, time_i: int) -> String:
+	return GuildBankSystem.mission_error(self, kind, target, rids, time_i)
+func guild_mission_fee(hours: float, n_bots: int) -> int:
+	return GuildBankSystem.fee(self, hours, n_bots)
+## Bot do elenco fora numa encomenda: segundos que faltam (0 = está no mundo). Guerra/arena: "fora numa encomenda".
+func guild_mission_away(rid: int) -> float:
+	return GuildBankSystem.away_left(self, rid)
+## Avisos de volta das encomendas (cartões à esquerda do minimapa).
+func guild_mission_notices() -> Array:
+	return GuildBankSystem.notices(self)
+func guild_mission_collect(mission_id: int) -> String:
+	return GuildBankSystem.mission_collect(self, mission_id)
+func guild_request_accept(id: int) -> String:
+	return GuildBankSystem.request_accept(self, id)
+func guild_request_deliver(id: int) -> String:
+	return GuildBankSystem.request_deliver(self, id)
+## Só revisão/fotos: guilda aceita, patente `rank_id`, banco cheio, uma encomenda de volta e uma andando.
+func dev_gbank_demo(level: int, rank_id: String = "oficial") -> void:
+	GuildBankSystem.dev_demo(self, level, rank_id)
+
+# --- Campo de Caça da Guilda (ArenaSystem; design/gdd/arena-da-guilda.md) ---
+## Estado da aba "Campo de Caça" da janela da Guilda ({} = sem guilda). Formato: ArenaSystem.hunt_field.
+func guild_hunt_field() -> Dictionary:
+	return ArenaSystem.hunt_field(self)
+
+## Entra com os bots do elenco `rids` (até Balance.ARENA_MAX_BOTS). "" = entrou; senão o motivo.
+func arena_enter(rids: Array) -> String:
+	return ArenaSystem.enter(self, rids)
+
+## "Próxima": começa a leva seguinte já (só na pausa).
+func arena_next() -> bool:
+	return ArenaSystem.next_wave(self)
+
+## Sai da corrida (volta para onde entrou, com o resumo).
+func arena_leave() -> void:
+	ArenaSystem.leave(self)
+
+## Corrida em andamento para o HUD ({} = nenhuma).
+func arena_status() -> Dictionary:
+	return ArenaSystem.status(self)
+
+## Resumo da última corrida ({} = nenhuma).
+func arena_last() -> Dictionary:
+	return (arena.get("last", {}) as Dictionary).duplicate()

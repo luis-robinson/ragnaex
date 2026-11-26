@@ -11,7 +11,9 @@ const CHECK_EVERY := 0.5
 const BOSS_RANGE := 32.0               # m: chefe em luta até aqui troca para o tema de chefe
 const THEMES := ["aldara", "taverna", "campo", "elfos", "bastiao", "masmorra", "caverna", "catacumbas", "trevas", "cidadela", "chefe", "investida",
 	"porto", "costa", "goblins", "horda", "kharzun", "kharzun_citadel",
-	"lumeria", "lumeria_morning", "perfume", "parade", "rift", "rift_raid", "espelhos", "adegas", "coro"]
+	"lumeria", "lumeria_morning", "perfume", "parade", "rift", "rift_raid", "espelhos", "adegas", "coro", "arena"]
+## tema que reusa a faixa de outro (sem arquivo próprio): Campo de Caça da Guilda toca a da investida (levas)
+const FILE_OF := {"arena": "investida"}
 ## mapa -> tema; o resto sai de theme_for() (masmorras, fortalezas, interiores)
 const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "field_crab_beach": "costa", "field_grove": "campo", "field_marsh": "campo", "field_oaths": "trevas", "dg_viveiro": "elfos", "dg_archive": "catacumbas", "in_tavern": "taverna", "field_forest": "campo", "elf_city": "elfos",
 	"field_ruins": "bastiao", "lich_citadel": "cidadela", "dg_catacumbas": "catacumbas", "dg_catacumbas_trono": "catacumbas",
@@ -26,7 +28,8 @@ const MAP_THEME := {"city_aldara": "aldara", "field_hollow": "campo", "field_cra
 	# nas Vinhas, a marcha que se repete demais no Cortejo; Fenda no coro etéreo sem percussão, raide no coro com órgão;
 	# Adegas na valsa da morte, Galeria dos Espelhos no baile dos fantasmas, Conservatório no coro ferido
 	"city_lumeria": "lumeria", "field_perfume": "perfume", "field_parade": "parade",
-	"rift_garden": "rift", "rift_heart": "rift_raid", "dg_cellars": "adegas", "dg_mirrors": "espelhos", "dg_conservatory": "coro", "in_duke_hall": "lumeria"}
+	"rift_garden": "rift", "rift_heart": "rift_raid", "dg_cellars": "adegas", "dg_mirrors": "espelhos", "dg_conservatory": "coro", "in_duke_hall": "lumeria",
+	"guild_grounds": "arena"}
 ## Tema por estágio (só lê `quests_completed` do jogador): mapa -> [missão, tema depois dela]. Manhã em Lumeria (L4, GDD ato3 §2.3).
 const STAGE_THEME := {"city_lumeria": ["hx3_veil", "lumeria_morning"]}
 
@@ -75,12 +78,16 @@ static func theme_for_stage(map_id: String, done: Array) -> String:
 			return str(st[1])
 	return theme_for(map_id)
 
+## Caminho da faixa do tema, sem extensão (FILE_OF: tema que reusa a de outro).
+static func file_for(theme: String) -> String:
+	return DIR + str(FILE_OF.get(theme, theme))
+
 func _stream(theme: String) -> AudioStream:
 	if _streams.has(theme):
 		return _streams[theme]
 	var s: AudioStream = null
 	for ext in ["ogg", "mp3"]:
-		var path: String = DIR + theme + "." + str(ext)
+		var path: String = file_for(theme) + "." + str(ext)
 		if ResourceLoader.exists(path):
 			s = load(path)
 			break

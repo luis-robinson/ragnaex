@@ -250,9 +250,10 @@ func save_player(p: SimEntity) -> void:
 	for slot in p.equipment:
 		if p.equipment[slot] != null:
 			eq[str(int(slot))] = p.equipment[slot].id
+	var place := ArenaSystem.save_place(Sim, p)     # dentro do Campo de Caça grava o lugar de onde entrou
 	var data := {
 		"name": p.name, "class": p.class_def.id, "look": p.look, "level": p.level, "xp": p.xp, "gold": p.gold,
-		"hp": p.hp, "mp": p.mp, "map": p.map_id, "pos": [p.position.x, p.position.z],
+		"hp": p.hp, "mp": p.mp, "map": place["map"], "pos": place["pos"],
 		"inventory": p.inventory, "storage": p.storage, "equipment": eq, "mastery": p.mastery, "mastery_points": p.mastery_points, "tree": p.tree.keys(), "asc_tree": p.asc_tree.keys(),
 		"potion_slots": p.potion_slots,
 		"learned": p.learned.keys(), "talents": p.talents.keys(),
@@ -269,6 +270,9 @@ func save_player(p: SimEntity) -> void:
 	if p == Sim.player and Sim.roster_on:            # Bots com Memória (campos opcionais; save antigo sorteia o elenco)
 		data["roster"] = RosterSystem.to_save(Sim)
 		data["guild"] = GuildSystem.to_save(Sim)
+	if p == Sim.player:
+		data["arena"] = ArenaSystem.to_save(Sim)       # Campo de Caça: entradas e recordes (campo opcional)
+		data.merge(GuildBankSystem.to_save(Sim))     # Banco da Guilda: guild_bank, guild_contrib, guild_missions, guild_requests (opcionais)
 	# gravação atômica: escreve o .tmp inteiro, fecha e só então renomeia por cima do save (fechar no meio não trunca o save bom)
 	var tmp := tmp_of(slot)
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
@@ -414,6 +418,8 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	CardSystem.from_save(p, d)                 # Cartas de Monstro: save sem os campos = vazio
 	if p == Sim.player:
 		RosterSystem.from_save(Sim, d)         # Bots com Memória: guarda o elenco para o Sim.roster_start (sem o campo = sorteia)
+		ArenaSystem.from_save(Sim, d)          # Campo de Caça: save sem o campo = ARENA_CHARGES_START entradas
+		GuildBankSystem.from_save(Sim, d)      # Banco da Guilda (sem os campos = banco vazio; o 1º pulso dá as boas-vindas)
 	# teia de ascensão (save < 5: vazia). Nó que não existe mais: a teia volta ao início (os pontos são calculados)
 	p.asc_tree = {}
 	var atr: Dictionary = GameData.asc_trees.get(p.class_def.id, {})

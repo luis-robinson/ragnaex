@@ -2469,7 +2469,7 @@ const ROSTER_MEMORY_MAX := 8             # lembranças por bot (a mais velha sai
 const ROSTER_UPDATE_S := 1.0             # s entre passadas do RosterSystem (relógio social)
 const ROSTER_LEVEL_SPREAD := 3           # elenco sorteado no nível do jogador ±3
 ## Peso de cada lembrança na afinidade (-100..100). "corrida" = o rival perdeu a corrida de chefe para você (respeito).
-const BOT_MEMORY_WEIGHT := {"salvou": 15, "grupo": 10, "ajudou_pedido": 20, "abandonou": -15, "perdeu_saque": -5, "corrida": 10}
+const BOT_MEMORY_WEIGHT := {"salvou": 15, "grupo": 10, "ajudou_pedido": 20, "abandonou": -15, "perdeu_saque": -5, "corrida": 10, "presente": 5}
 const AFFINITY_MAX := 100
 const AFFINITY_TIERS := [[-30, "Hostil"], [0, "Frio"], [30, "Conhecido"], [60, "Amigo"], [101, "Leal"]]     # abaixo do número = rótulo
 const ROSTER_SAVE_HP := 0.25             # "salvou": curou (ou matou o algoz) com o bot abaixo de 25% da vida
@@ -2519,3 +2519,119 @@ const BOT_HELP_LOW_HP := 0.5             # "vida baixa" para escolher quem pede
 const BOT_CELEBRATE_MAX := 2             # bots do elenco que reagem a uma conquista
 const BOT_CELEBRATE_RANGE := 20.0        # m: bot de fora do elenco perto também comemora
 const BOT_CELEBRATE_STRANGER := 0.5
+
+# ---------------------------------------------------------------------------
+# Campo de Caça da Guilda (design/gdd/arena-da-guilda.md; ArenaSystem). Levas sem fim até o grupo cair.
+const ARENA_CHARGES_MAX := 3             # entradas guardadas (D2)
+const ARENA_CHARGE_MIN := 60.0           # min de jogo por entrada (1 por hora)
+const ARENA_CHARGES_START := 1           # save sem o campo / personagem novo começa com 1 entrada
+const ARENA_LEVEL := 15                  # nível mínimo (a guilda chega no 15)
+const ARENA_MAX_BOTS := 4                # você + até 4 bots da guilda
+const ARENA_WAVE_BASE := 4               # tamanho da leva N = BASE + PER × N (§4)
+const ARENA_WAVE_PER := 2
+const ARENA_WAVE_CAP := 30               # vivos ao mesmo tempo (o resto espera no portão)
+const ARENA_HP_STEP := 0.08              # vida × (1 + STEP × (N − 1))
+const ARENA_DMG_STEP := 0.05             # dano × (1 + STEP × (N − 1))
+const ARENA_HP_MULT := 2.2               # ajuste fino geral da vida dos monstros da arena (sonda arena_probe)
+const ARENA_DMG_MULT := 0.9              # idem, dano
+## Ajuste por faixa do nível do grupo, por cima dos globais: limite de cima da faixa -> [vida, dano] (sonda arena_probe;
+## design/gdd/arena-da-guilda.md §10). Os monstros de campo de cada faixa não pesam igual contra bots com o equipamento do nível.
+const ARENA_BAND_MULT := {10: [1.7, 1.1], 20: [1.7, 1.1], 30: [2.4, 1.0], 40: [1.4, 0.75], 50: [1.4, 0.75]}
+const ARENA_HEALERS_MAX := 4             # Curandeiros: só os 4 primeiros da leva curam
+const ARENA_STALL_S := 60.0              # s sem abate numa leva: os que sobram vão ao centro sem escudo/cura (a leva sempre termina)
+const ARENA_STALL_MAX := 2               # idas ao centro seguidas sem abate até decidir: com até ARENA_STALL_LEFT de pé eles somem
+const ARENA_STALL_LEFT := 3              # sem saque e a leva acaba; com mais, o grupo não dá conta e a corrida acaba (cai)
+const ARENA_BREAK_S := 10.0              # pausa entre levas ("Próxima" corta)
+const ARENA_FIRST_BREAK_S := 6.0         # da entrada até a leva 1
+const ARENA_GOLD_MULT := 3               # ouro × 3 do ouro normal do monstro (D3)
+const ARENA_XP_MULT := 0.5               # metade do XP (§9.1)
+const ARENA_ELITE_EVERY := 5             # Rei do monstro no meio da leva
+const ARENA_BOSS_EVERY := 10             # chefe de campo da faixa (sem saque de chefe)
+const ARENA_MOD_FROM := 15               # modificador sorteado por leva daqui em diante
+const ARENA_BAND_SPREAD := 4             # monstros comuns de nível do grupo ± isto (zonas da faixa)
+const ARENA_BOSS_SPREAD := 6             # chefes de campo de nível do grupo ± isto
+const ARENA_AGGRO := 45.0                # m: a arena inteira (monstro da leva sempre acha o grupo)
+const ARENA_LEASH := 80.0
+const ARENA_RELEASE_S := 0.5             # s entre dois monstros saindo do mesmo portão
+const ARENA_STUCK_S := 12.0              # monstro longe do grupo e sem apanhar por isto volta ao centro (§5)
+const ARENA_STUCK_DIST := 9.0            # m do membro vivo mais perto que conta como "longe"
+const ARENA_REVIVE_SHARE := 0.5          # mortos voltam na pausa com 50% da vida (§3.6)
+const ARENA_EXIT_RADIUS := 1.5           # m do ponto de saída TRIG_exit (só vale na pausa)
+const ARENA_CONSUMABLE_CHANCE := 0.12    # por abate: um consumível
+## [item, peso, nível mínimo do grupo]; Poção de Caça à parte (rara)
+const ARENA_CONSUMABLES := [["potion_hp_s", 30, 0], ["potion_mp_s", 20, 0], ["potion_hp_m", 30, 8], ["potion_mp_m", 20, 8],
+	["elixir_might", 6, 0], ["elixir_stone", 6, 0]]
+const ARENA_HUNT_POTION_CHANCE := 0.004  # por abate: Poção de Caça (grau do nível, tipo sorteado)
+## Modificadores da leva (a partir de ARENA_MOD_FROM): nome no topo + efeito
+const ARENA_MODS := {
+	"rapidos": {"label": "Rápidos", "speed": 1.3},
+	"enfurecidos": {"label": "Enfurecidos", "dmg": 1.3},
+	"escudados": {"label": "Escudados", "shield": 0.3},       # escudo de 30% da vida ao nascer
+	"curandeiros": {"label": "Curandeiros", "heal": 0.015},   # 1,5% da vida por s (só quem está ferido)
+}
+const ARENA_CHAT_CHANCE := 0.7           # bot comenta o fim da corrida no chat da guilda
+
+# Banco da Guilda (design/gdd/banco-da-guilda.md §7; GuildBankSystem). Relógio = relógio social (só com o jogo aberto).
+const GBANK_TICK := 10.0                 # min de jogo entre pulsos de depósito dos bots
+const GBANK_FIRST_PULSE := 60.0          # s até o 1º pulso (boas-vindas) depois de entrar na guilda
+const GBANK_WELCOME := Vector2i(3, 5)    # itens de boas-vindas no 1º pulso (guilda nova / save antigo)
+const GBANK_SLOTS := 60                  # teto de itens livres (reservado de encomenda não conta)
+const GBANK_EVICT_WINDOW := 10           # cheio: sai o mais barato entre os N mais velhos
+const GBANK_LOG_MAX := 40
+const GBANK_DEPOSIT_WEIGHTS := [0.4, 0.4, 0.2]     # cada bot no pulso deposita 0 / 1 / 2 coisas
+const GBANK_KIND_WEIGHTS := {"gear": 30.0, "card": 18.0, "material": 32.0, "consumable": 15.0, "scroll": 5.0}
+const GBANK_GOLD_PER_BOT := 3            # ouro por pulso = isto × nível do bot
+const GBANK_BOT_TAKE_CHANCE := 0.15      # por bot e pulso: tira do banco algo da build dele
+const GBANK_BOT_TAKE_SPAN := 8           # bot só pega equipamento de até N níveis abaixo do dele
+const GBANK_CHAT_CHANCE := 0.25          # depósito aparece no chat da guilda
+const GBANK_REF_DROP := 2                # R = max(F, nível do jogador) - isto (§4)
+## [F, [comum, raro, lendário]] (§4); entre linhas interpola. Lendário só com GBANK_LEGEND_RANK (senão vira raro).
+const GBANK_RARITY_BY_F := [[15, [70.0, 28.0, 2.0]], [40, [45.0, 50.0, 5.0]]]
+const GBANK_LEGEND_RANK := "oficial"
+const GBANK_LEGEND_MAX_LEVEL := 50       # conjuntos deste nível em diante (e Ápices) nunca entram
+const GBANK_CORE_CARD_CHANCE := 0.12     # carta depositada é de núcleo
+const GBANK_MAT_COUNT := Vector2i(3, 8)
+const GBANK_CONS_COUNT := Vector2i(2, 5)
+## [nível mínimo, item] dos consumíveis que os bots deixam
+const GBANK_CONSUMABLES := [[1, "potion_hp_s"], [1, "potion_mp_s"], [8, "potion_hp_m"], [8, "potion_mp_m"], [12, "elixir_might"],
+	[12, "elixir_stone"], [46, "clear_wine"]]
+const GBANK_SCROLLS := ["refine_scroll"]     # pergaminhos (mvp-premios.md); id que ainda não existe é pulado
+# Retiradas e patentes (§3.4, §3.6)
+const GBANK_TAKE_CAP_H := 2.0            # retiradas/ouro guardam no máximo 2 h
+const GBANK_STACK_TAKE := 20             # pilha tirada = 1 retirada, até isto de unidades
+const GBANK_RANKS := [
+	{"id": "recruta", "name": "Recruta", "contrib": 0, "takes": 5, "gold": 500, "missions": 0},
+	{"id": "membro", "name": "Membro", "contrib": 300, "takes": 6, "gold": 1500, "missions": 0},
+	{"id": "veterano", "name": "Veterano", "contrib": 1000, "takes": 8, "gold": 4000, "missions": 1},
+	{"id": "oficial", "name": "Oficial", "contrib": 3000, "takes": 10, "gold": 10000, "missions": 2},
+	{"id": "braco_direito", "name": "Braço-Direito", "contrib": 8000, "takes": 12, "gold": 25000, "missions": 3},
+]
+const GBANK_REQUEST_RANK := "membro"     # pedidos dos bots
+const GBANK_MISSION_RANK := "veterano"   # encomendas
+# Contribuição (§3.5, §4): preço × taxa (× mult no lendário), com mínimos
+const GBANK_CONTRIB_RATE := 0.05
+const GBANK_CONTRIB_LEGEND_MULT := 4.0   # lendário do 30 (~2700 de preço) = ~545
+const GBANK_CONTRIB_MIN := {"legend": 400, "core_card": 250, "card": 20}
+const GBANK_CONTRIB_GOLD := 0.05         # ouro posto no cofre: Contribuição por moeda
+const GBANK_USER_BONUS := 1.5            # um bot da guilda usa o item: +50%
+const GBANK_USER_SLACK := 3              # "usa" = classe dele e nível da peça até o dele + isto
+const GBANK_GIFT_MEMORY_CD := 60.0       # min entre lembranças "presente" do mesmo bot
+# Encomendas (§3.7, §4, §9.3-9.4)
+const GBANK_MISSION_TIMES := [30, 60, 120]     # min de jogo: curta / média / longa
+const GBANK_MISSION_BOTS := 3
+const GBANK_MISSION_FEE := 100           # taxa = isto × horas × bots × max(1, nível/10)
+const GBANK_MAT_PER_BOT_H := 6.0         # material por bot-hora no nível da faixa (2 bots do 32, 1 h, Minério Estelar ~12)
+const GBANK_MISSION_LEVEL_CAP := 1.5     # teto do fator nível dos bots / nível da faixa
+const GBANK_CARD_CHANCE_PER_H := 0.35    # chance de carta por bot = min(MAX, horas × isto × fator de nível)
+const GBANK_CARD_CHANCE_MAX := 0.9
+const GBANK_CARD_FACTOR := Vector2(0.3, 1.5)     # fator de nível (bots / monstro), limites
+const GBANK_CARD_MISS_MATS := 5.0        # carta não achada: materiais do monstro por hora (+ metade da taxa)
+# Pedidos dos bots (§3.8)
+const GBANK_REQUEST_REFRESH := 60.0      # min de jogo entre quadros novos
+const GBANK_REQUESTS := Vector2i(3, 5)
+const GBANK_REQUEST_MATS := Vector2i(5, 15)
+const GBANK_REQUEST_BOSS_BAND := 4       # chefe do pedido de abate: nível do jogador ± isto
+const GBANK_REQUEST_GOLD_PER_LV := 15
+const GBANK_REQUEST_CONTRIB := {"material": 60, "card": 90, "kill": 120}
+const GBANK_REQUEST_ITEM_N := 3          # consumível de presente do bot
+const WORLD_BOSS_HP_MOD_MAX := 30.0      # teto do mod_unidade de vida dos chefes de mundo do Ato II/III (luta aberta de 8-15; momentos-do-mundo §10)

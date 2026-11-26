@@ -76,6 +76,7 @@ var gather_label: Label              # "[F] Colher ..." perto de um ponto; "Colh
 var lock_tag: PanelContainer        # Tab: "Travado: <chefe>" no topo enquanto a trava no chefe vale (BossLock)
 var lock_label: Label
 var boss_bar: BossBar                 # barra do chefe no topo central (vida, fases, conjuração; C4 2026-11-23)
+var arena_hud: ArenaHud               # Campo de Caça da Guilda: leva/pausa/Próxima/Sair + resumo no fim
 var raid_banner: PanelContainer      # faixa no topo durante uma investida no mapa do jogador (Sim.raid_status)
 var raid_label: Label
 ## Fala de chefe (abertura/fase/queda): faixa própria, opaca, abaixo da investida; não divide a linha das notificações
@@ -502,6 +503,9 @@ func _build_notifications() -> void:
 	root.add_child(lock_tag)
 	boss_bar = BossBar.new()
 	root.add_child(boss_bar)
+	arena_hud = ArenaHud.new()
+	root.add_child(arena_hud)
+	arena_hud.make_summary(root)
 
 ## Coluna da direita: minimapa (com o nome do mapa embaixo) e o rastreador de quests.
 func _build_top_right() -> void:
@@ -537,6 +541,12 @@ func _build_top_right() -> void:
 	quest_tracker.meta_clicked.connect(_on_track_clicked)
 	p.add_child(quest_tracker)
 	minimap.hud = self
+	var gm := GuildMissionCards.new()        # Banco da Guilda: cartões de volta das encomendas, à esquerda do minimapa
+	gm.name = "GuildMissionCards"
+	gm.anchor_left = 1.0; gm.anchor_right = 1.0
+	gm.offset_right = -(MARGIN + Minimap.SIZE + GAP); gm.offset_left = gm.offset_right - 480; gm.offset_top = MARGIN
+	gm.offset_bottom = MARGIN + Minimap.SIZE * 2.0
+	root.add_child(gm)
 
 func _build_hints() -> Label:
 	hint_label = UiKit.label(hint_text(), 12, UiKit.MUTED)
@@ -583,6 +593,7 @@ func _hud_process(_delta: float) -> void:
 		_raid_t = 0.2
 		_update_raid_banner(p)
 	boss_bar.update(Sim, p, _delta)
+	arena_hud.update(_delta)
 	lock_tag.visible = boss_bar.lock_id >= 0 and not boss_bar.visible     # com a barra, o "Travado" vai nela
 	_stack_top_lane()
 	if _boss_left > 0.0:
@@ -1141,6 +1152,11 @@ func _stack_top_lane() -> void:
 	var y := 0.0
 	if boss_bar.visible:
 		y = boss_bar.offset_top + boss_bar.size.y + LANE_GAP
+	if arena_hud and arena_hud.visible:            # Campo de Caça: a faixa da leva desce para baixo da barra do chefe
+		arena_hud.offset_top = maxf(6.0, y)
+		y = arena_hud.offset_top + arena_hud.size.y + LANE_GAP
+	elif arena_hud:
+		arena_hud.offset_top = 6.0
 	var rt := maxf(RAID_TOP, y)
 	if raid_banner.offset_top != rt:
 		raid_banner.offset_top = rt

@@ -149,7 +149,7 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	# --- grupo: quem não é líder segue o líder; o líder também cura, provoca e segura o chefe solto ---
 	if e.party_id >= 0:
 		var leader: SimEntity = sim.party_leader(e)
-		if leader and leader != e:
+		if leader and leader != e and (leader.is_alive() or not def.instance):
 			return _follow(e, sim, m, leader, cmd, dt)
 		if not in_town:
 			var members: Array = sim.party_members(e)
@@ -165,6 +165,10 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		var web := _cocoon_target(e, sim, [sim.player])     # sozinho: casulo segurando o jogador por perto
 		if web:
 			return _fight(e, sim, m, web, cmd)
+
+	# --- Campo de Caça da Guilda (instância): luta com a leva, entre levas espera no centro ---
+	if def.instance:
+		return _arena(e, sim, m, cmd)
 
 	# --- investida no mapa: defende o portão do povoado ---
 	var dcmd := _defend(e, sim, m, cmd, dt)
@@ -288,6 +292,18 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 				# fim da viagem: grupo só de bots se desfaz às vezes (com o jogador, fica)
 				if e.party_id >= 0 and not _party_has_player(e, sim) and rng.randf() < 0.5:
 					sim.party_leave(e)
+	return cmd
+
+## Campo de Caça (ArenaSystem): o monstro de agora ou o mais perto da arena; sem nenhum, volta ao centro.
+func _arena(e: SimEntity, sim, m: Dictionary, cmd: InputCommand) -> InputCommand:
+	var mob := _sticky(e, m, Balance.BOT_STICKY_RANGE)
+	if mob == null:
+		mob = Combat.nearest_hostile(e, m["entities"], Balance.ARENA_AGGRO)
+	if mob != null:
+		return _fight(e, sim, m, mob, cmd)
+	if Vector2(e.position.x, e.position.z).length() > 3.0:
+		cmd.move = _steer(e, Vector3.ZERO, think_dt)
+		cmd.aim = Vector3.ZERO
 	return cmd
 
 # ---------------------------------------------------------------------------

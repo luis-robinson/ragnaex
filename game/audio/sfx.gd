@@ -97,6 +97,11 @@ const MOB_VOICE := {
 	# Ato III, chefes (WP12): a prensa range na Vindima, a ária na Prima-Donna, o gole no Varo, o vidro na Condessa
 	"boss_vindima": ["press_creak", "nature", "golem_crumble"], "boss_prima_donna": ["aria", "shrill_note", "die_boss"],
 	"boss_varo": ["gulp", "", "die_boss"], "boss_countess": ["mirror_hum", "", "mirror_crack"], "boss_ressoa": ["canon", "", "die_boss"],
+	# Chefes de Mundo (momentos-do-mundo §10): bancos que já existem (javali/alce sem voz própria ainda)
+	"ancestral_boar": ["bear_growl", "earth", "die_boss"], "ancient_elk": ["nature", "nature", "golem_crumble"],
+	"ruins_basilisk": ["salamander_hiss", "salamander_hiss", "golem_crumble"], "war_rhino": ["war_drum", "troll_grunt", "troll_die"],
+	"iron_wolf_king": ["dire_howl", "wolf_snarl", "dire_howl"], "porcelain_stag": ["bells", "bells", "mirror_crack"],
+	"wb_iron_wolf": ["dire_howl", "wolf_snarl", ""], "wb_platform_warrior": ["orc", "orc", ""], "wb_ruin_statue": ["golem_rumble", "", "golem_crumble"],
 }
 ## Skill com som próprio na fase ativa (no lugar do vento da arma) e no impacto (no lugar do som do tema).
 const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "mob_net_throw": "net",
@@ -107,7 +112,8 @@ const CAST_SOUND := {"mob_drum_beat": "war_drum", "mob_war_drum": "war_drum", "m
 	# Mata dos Zumbidos: o rugido da Ursa-Mãe e a colmeia soltando o enxame
 	"mob_bear_roar": "bear_roar", "mob_hive_swarm": "wasp_buzz", "mob_entangle": "nature", "mob_call_pack": "wolf_howl", "mob_call_boar": "drum_beat", "mob_call_rabbits": "drum_beat", "mob_call_deer": "drum_beat",
 	# Ato III (WP12): o leque-lâmina abre no salto; o Incensário sopra o Fumo Doce
-	"mob_fan_leap": "fan_open", "mob_first_fan_leap": "fan_open", "mob_sweet_smoke": "smoke_hiss"}
+	"mob_fan_leap": "fan_open", "mob_first_fan_leap": "fan_open", "mob_sweet_smoke": "smoke_hiss",
+	"mob_wb_rhino_drum": "war_drum"}
 const EFFECT_SOUND := {"mob_tide_pull": "tide", "mob_tide_wave": "tide", "mob_tide_geysers": "tide",
 	"mob_troll_slam": "troll_slam", "mob_rock_quake": "troll_slam",
 	"mob_boulder_toss": "boulder", "mob_basalt_stomp": "troll_slam", "mob_brute_quake": "troll_slam",
@@ -138,6 +144,10 @@ const SIG_WARN := {
 	"mob_ressoa_canon": ["active", "sig_warn", "canon"],           # as marcas do Cânone nas vítimas: a frase em três vozes
 	"mob_read_name": ["active", "sig_warn", "smoke_vanish"],       # Escrivão de Azhar: a leitura começa (interrompa!)
 	"mob_roll_call": ["startup", "sig_warn", "mirror_hum"],        # 3 s de preparo da Chamada: as estantes se erguem
+	# Chefes de Mundo: o desenho aparece no chão (faixas, anéis, marcas, ilhas)
+	"mob_wb_boar_trail": ["active", "sig_warn", "earth"], "mob_wb_elk_eruption": ["active", "sig_warn", "golem_rumble"],
+	"mob_wb_bas_gaze": ["active", "sig_warn", "salamander_hiss"], "mob_wb_rhino_trample": ["active", "sig_warn", "war_drum"],
+	"mob_wb_wolf_hunt": ["active", "sig_warn", "dire_howl"], "mob_wb_stag_flare": ["active", "sig_warn", "bells"],
 }
 ## Impacto/quebra das assinaturas (id do skill_effect, inclusive os que não são skill: BossSignatures.*_FX).
 const SIG_EFFECT := {
@@ -151,6 +161,8 @@ const SIG_EFFECT := {
 	"mob_vess_cortege": "cortege_march", "mob_echo_thirst": "thirst_drain",
 	"mob_varo_banquet": "toast_clink", "mob_countess_gaze": "mirror_flash", "mob_ressoa_canon": "shrill_note",
 	"mob_read_name": "smoke_vanish", "mob_roll_call": "mirror_flash",
+	"mob_wb_boar_trail": "earth", "mob_wb_elk_eruption": "golem_crumble", "mob_wb_bas_gaze": "golem_crumble",
+	"mob_wb_rhino_trample": "troll_slam", "mob_wb_wolf_hunt": "troll_slam", "mob_wb_stag_flare": "mirror_flash",
 	BossSignatures.MIRROR_RISE_FX: "mirror_hum", BossSignatures.MIRROR_CRACK_FX: "mirror_crack",
 }
 const AURA_SOUND := {"agitator": "drum_beat", "agitator_boss": "drum_beat", "clan_wolf": "drum_beat", "festim": "festim_bell", "sede": "thirst_sigh", "sense_sight": "drum_beat"}

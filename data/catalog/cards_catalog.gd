@@ -95,6 +95,8 @@ const CORES := [
 	["dragonling", "accessory", "fire_pct"],
 	["sap_sprout", "boots", "evasion"], ["elf_warden", "chest", "aspd_pct"], ["rest_bear", "chest", "hp_pct"],
 	["tower_bat", "weapon", "backstab"], ["golem", "chest", "def_pct"], ["citadel_knight", "offhand", "dr_pct"],
+	# Chefes de Mundo do Ato I (momentos-do-mundo §10; Ato II/III depois): presa que atordoa, galhada de espinhos, couro de pedra
+	["ancestral_boar", "weapon", "proc_stun"], ["ancient_elk", "offhand", "thorns"], ["ruins_basilisk", "chest", "dr_pct"],
 ]
 
 ## Eco de chefe dá a carta do chefe original (com Balance.CARD_CHANCE_ECHO).
@@ -104,7 +106,7 @@ const ECHOES := {"echo_ghoul_giant": "ghoul_giant", "echo_death_knight": "death_
 const FAMILY := {
 	"beast": ["boar", "wolf", "crab", "crab_sand", "crab_hermit", "bear_cub", "bear", "grove_bear", "grove_wolf", "elf_lynx",
 		"griffin", "griffin_raider", "bog_toad", "tower_bat", "carrion_crow", "rest_bear", "boar_brute", "boar_king", "crab_king",
-		"bear_mother", "bog_mother", "dragonling", "elf_captain_sky"],
+		"bear_mother", "bog_mother", "dragonling", "elf_captain_sky", "ancestral_boar", "ancient_elk", "ruins_basilisk"],
 	"insect": ["wasp", "wasp_soldier", "hive", "spider", "marsh_spider", "sap_spider", "marsh_leech", "web_weaver", "larva", "spider_queen"],
 	"undead": ["zombie", "bone_recruit", "bone_archer", "ghoul", "wraith", "ghost", "rest_thaw_wraith", "rot_wolf", "rot_zombie",
 		"rot_ghoul", "rest_ghoul", "rot_bear", "skel_archer", "skeleton", "skel_guard", "rest_bones", "rest_bone_archer",

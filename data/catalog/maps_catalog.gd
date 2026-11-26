@@ -55,6 +55,7 @@ static func build() -> Array:
 		if did == ARCHIVE_ID and not archive_ready():      # Arquivo de Vel'Thar: só com o JSON do Blender (e o Campo na sim)
 			continue
 		out.append(_dungeon(did))
+	out.append(_guild_grounds())             # Campo de Caça da Guilda (instância só do grupo do jogador)
 	var doors := {}
 	for host in interior_hosts():
 		doors.merge(_interior_doors(load_zone(host), host))
@@ -3061,3 +3062,82 @@ static func _rift_garden() -> MapDef:
 		"ground_color": Color(0.72, 0.78, 0.7), "ground_color_alt": Color(0.68, 0.73, 0.66), "ambient": Color(1.0, 0.9, 0.94), "sun_energy": 1.05,
 		"bot_population": 4}, true)
 	return _mk(z)
+
+# ---------------------------------------------------------------------------
+## Campo de Caça da Guilda (design/gdd/arena-da-guilda.md; ArenaSystem): arena redonda (~40 m) com 4 portões a 20 m do centro,
+## pilares baixos entre 8 e 12 m e o ponto de saída perto do portão sul. Instância (`MapDef.instance`): sem portal, só o grupo
+## que entrou pela janela da Guilda. Visual do Blender (`map_guild_grounds.glb` + `data/zones/guild_grounds.json`); sem o JSON,
+## blocagem só do catálogo (muro em anel + pilares). Portões e saída: do JSON (`gates`/`exit`) ou destas constantes.
+const GUILD_GROUNDS_ID := "guild_grounds"
+const GUILD_GROUNDS_GATES := {"N": [0.0, -20.0], "E": [20.0, 0.0], "S": [0.0, 20.0], "W": [-20.0, 0.0]}
+const GUILD_GROUNDS_EXIT := [0.0, 16.5]
+const GUILD_GROUNDS_RADIUS := 22.0        # muro do anel (blocagem)
+const GUILD_GROUNDS_PILLARS := [[10.0, 30.0], [9.0, 102.0], [11.0, 174.0], [9.5, 246.0], [10.5, 318.0]]     # [raio, ângulo]
+const GUILD_GROUNDS_ZONE_KEYS := ["size", "spawn", "obstacles", "portals", "spawners", "hangouts", "npcs", "town", "roads", "water"]
+
+static func _guild_grounds() -> MapDef:
+	var d := {"id": GUILD_GROUNDS_ID, "name": "Campo de Caça da Guilda", "is_town": false, "instance": true, "level_range": Vector2i(15, 50),
+		"size": Vector2(48, 48), "ground_color": Color(0.5, 0.66, 0.4), "ground_color_alt": Color(0.5, 0.66, 0.4).darkened(0.08),
+		"ambient": Color(0.95, 0.92, 0.85), "sun_energy": 1.15, "spawn_point": Vector3.ZERO, "bot_population": 0}
+	var raw := guild_grounds_raw()
+	if not raw.is_empty() and GUILD_GROUNDS_ZONE_KEYS.all(func(k): return raw.has(k)):
+		var z := load_zone(GUILD_GROUNDS_ID)
+		z.erase("npc_pos")
+		z["portals"] = []                    # a saída é do ArenaSystem (ponto TRIG_exit), não um portal
+		z["spawners"] = []                   # as levas são do ArenaSystem
+		z["raid"] = {}
+		z["raids"] = []
+		z["bot_hangouts"] = []
+		d.merge(z, true)
+		d["spawn_point"] = Vector3.ZERO
+		return _mk(d)
+	var obs: Array = []
+	var n := 28
+	for i in n:                              # muro do anel (com o portão no lugar de cada ponto cardeal só no visual)
+		var a := TAU * (i + 0.5) / n
+		var w := TAU * GUILD_GROUNDS_RADIUS / n + 0.3
+		obs.append(_ob("wall", cos(a) * GUILD_GROUNDS_RADIUS, sin(a) * GUILD_GROUNDS_RADIUS, w, 2.4, 0.8, C_STONE, -rad_to_deg(a) + 90.0))
+	for pl in GUILD_GROUNDS_PILLARS:
+		var a := deg_to_rad(float(pl[1]))
+		obs.append(_ob("pillar", cos(a) * float(pl[0]), sin(a) * float(pl[0]), 1.4, 1.6, 1.4, C_RUIN))
+	d["obstacles"] = obs
+	return _mk(d)
+
+## JSON cru da arena ({} sem o arquivo): o MapDef e os portões/saída leem dele.
+static func guild_grounds_raw() -> Dictionary:
+	if not FileAccess.file_exists(ZONE_PATH % GUILD_GROUNDS_ID):
+		return {}
+	var v: Variant = JSON.parse_string(FileAccess.get_file_as_string(ZONE_PATH % GUILD_GROUNDS_ID))
+	return v if v is Dictionary else {}
+
+## Portões das levas (Vector3, ordem N, E, S, W): `gates` do JSON (dicionário nome -> [x, z] ou lista de {id, pos}) ou as constantes.
+static func guild_grounds_gates() -> Array:
+	var raw := guild_grounds_raw()
+	var src: Variant = raw.get("gates", (raw.get("arena", {}) as Dictionary).get("gates") if raw.get("arena") is Dictionary else null)
+	var out: Array = []
+	if src is Dictionary:
+		for k in ["N", "E", "S", "W"]:
+			var key: String = k if (src as Dictionary).has(k) else "gate_" + k
+			if (src as Dictionary).has(key):
+				out.append(_v3(src[key]))
+	elif src is Array:
+		for g in src:
+			if g is Dictionary and g.has("pos"):
+				out.append(_v3(g["pos"]))
+			elif g is Array:
+				out.append(_v3(g))
+	if out.size() < 2:
+		out.clear()
+		for k in ["N", "E", "S", "W"]:
+			out.append(_v3(GUILD_GROUNDS_GATES[k]))
+	return out
+
+## Ponto de saída (TRIG_exit): `exit` do JSON ou a constante.
+static func guild_grounds_exit() -> Vector3:
+	var raw := guild_grounds_raw()
+	var e: Variant = raw.get("exit", (raw.get("arena", {}) as Dictionary).get("exit") if raw.get("arena") is Dictionary else null)
+	if e is Array and (e as Array).size() >= 2:
+		return _v3(e)
+	if e is Dictionary and (e as Dictionary).has("pos"):
+		return _v3(e["pos"])
+	return _v3(GUILD_GROUNDS_EXIT)

@@ -362,7 +362,8 @@ static func _address(line: String) -> Array:
 const PERSONALITIES := ["calmo", "brincalhao", "competitivo", "timido", "heroico"]
 const PERSONALITY_LABELS := {"calmo": "Calmo", "brincalhao": "Brincalhão", "competitivo": "Competitivo", "timido": "Tímido", "heroico": "Heroico"}
 const MEMORY_LABELS := {"salvou": "Você o salvou", "grupo": "Venceram um chefe juntos", "abandonou": "Você saiu do grupo na masmorra",
-	"ajudou_pedido": "Você veio no pedido de socorro", "perdeu_saque": "Você ficou com o lendário", "corrida": "Você venceu a corrida de chefe"}
+	"ajudou_pedido": "Você veio no pedido de socorro", "perdeu_saque": "Você ficou com o lendário", "corrida": "Você venceu a corrida de chefe",
+	"presente": "Você deixou no banco algo para ele"}
 
 ## Falas do elenco: evento -> personalidade -> frases ("*" = qualquer personalidade, usado quando a dela falta).
 ## Marcas: {p} jogador, {me} o bot, {map}, {boss}, {lv}, {item}, {guild}.
@@ -486,6 +487,8 @@ const ROSTER_LINES := {
 	"guild_reply": {
 		"*": ["haha verdade", "concordo", "bora!", "kkkk", "falou tudo", "eu topo", "agora não dá, tô caçando"],
 		"heroico": ["conte comigo!"], "timido": ["s-sim"], "competitivo": ["eu faço melhor"]},
+	"mem_presente": {
+		"*": ["{p}, vi o {item} no banco. é meu número!", "valeu pelo {item}, {p}", "o {item} do banco foi você? obrigado!"]},
 	"party_dry": {
 		"*": ["tá. entro.", "ok, {p}. mas sem largar no meio", "hm. vamos lá"]},
 }
@@ -503,3 +506,32 @@ const BOT_GUILDS := [
 	{"name": "Filhos da Fenda", "tag": "FDF", "personality": "agressiva", "crest": 4},
 	{"name": "Guarda do Porto", "tag": "GDP", "personality": "defensiva", "crest": 5},
 ]
+
+## Banco da Guilda (design/gdd/banco-da-guilda.md; GuildBankSystem.line): {p} jogador, {me} bot, {item} item, {map} lugar,
+## {n} quantidade, {got} o que trouxe, {gold} ouro devolvido, {rank} patente.
+const GBANK_LINES := {
+	"deposit": {
+		"*": ["deixei {item} no banco, alguém usa?", "{item} no banco pra quem precisar", "achei {item}, tá no banco"],
+		"brincalhao": ["{item} no banco! de nada kkk"], "timido": ["d-deixei {item} no banco..."], "heroico": ["{item} no banco! pela guilda!"]},
+	"rank_up": {
+		"*": ["parabéns pela patente de {rank}, {p}!", "{rank}! merecido, {p}", "olha o {p} virando {rank}"],
+		"competitivo": ["{rank}? eu chego lá também"], "brincalhao": ["{rank}!!! paga uma rodada, {p}"]},
+	"back_material": {
+		"*": ["Voltei de {map}! Achei {n} {got}, tá reservado no banco pra você.", "Encomenda feita: {n} {got}. Deu trabalho em {map}!"],
+		"brincalhao": ["Voltei de {map}! {n} {got} e só uma mordida no braço kkk"], "heroico": ["Missão cumprida em {map}: {n} {got} pra você, {p}!"],
+		"timido": ["V-voltei de {map}... trouxe {n} {got}."], "calmo": ["Voltei de {map} com calma. {n} {got}, tá no banco."]},
+	"back_card": {
+		"*": ["Voltei de {map}! Achei a {got}, ela quase me pegou.", "Consegui a {got} em {map}! É sua, {p}."],
+		"competitivo": ["{got}? Fácil. Tá no banco."], "heroico": ["A {got} é sua, {p}! {map} não foi páreo."]},
+	"back_miss": {
+		"*": ["Rodei {map} inteiro e nada da {item}... trouxe {n} {got} e metade da taxa ({gold} de ouro).",
+			"A {item} não caiu. Desculpa, {p}: {gold} de ouro de volta e {n} {got}."],
+		"timido": ["n-não achei a {item}... devolvi {gold} de ouro e trouxe {n} {got}."]},
+}
+
+## Campo de Caça da Guilda (ArenaSystem._chat): fim da corrida no chat da guilda. {wave}, {name} = outro bot do grupo.
+const ARENA_LINES := {
+	"record": ["LEVA {wave}! recorde novo da guilda, alguém tira print", "leva {wave}, ninguém da guilda chegou tão longe", "{wave}! e o {name} ainda queria sair na 10"],
+	"wipe": ["leva {wave}... o {name} caiu primeiro, claro", "caímos na {wave}. semana que vem passa", "leva {wave}. precisamos de mais cura, só digo isso"],
+	"leave": ["saímos na leva {wave}, bolso cheio", "leva {wave} e fora, sem morrer. gosto assim", "{wave} levas, bom treino"],
+}

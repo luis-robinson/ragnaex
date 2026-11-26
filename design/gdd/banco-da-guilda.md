@@ -139,3 +139,17 @@ reservado de encomenda). O registro mostra ("Rook pegou: Botas do Caçador"): o 
 3. **Encomenda volta reservada para você**, sem gastar retirada; avisa com um **cartão à esquerda do minimapa** que abre a
    mensagem do bot e o botão "Pôr na bolsa".
 4. **Encomenda nunca falha**: bots fracos trazem menos; carta não achada devolve metade da taxa.
+
+## 10. Implementação (2026-11-26)
+
+`core/sim/systems/guild_bank_system.gd` (`GuildBankSystem`, estado em `WorldSim.gbank`, passada no `RosterSystem.update`),
+números `Balance.GBANK_*`, falas `BotsCatalog.GBANK_LINES`, UI `game/ui/guild_bank_ui.gd` (aba Banco + sub-aba Encomendas) e
+`game/ui/guild_mission_cards.gd` (cartões à esquerda do minimapa). Check `--only=guild_bank`; fotos `-- --autostart=<c> --gbank_shot=<pasta>`.
+Decisões além do texto:
+- §3.6 "nunca cai" = não decai com o tempo; tirar de volta o próprio depósito devolve a Contribuição e a patente acompanha (senão dava para subir girando o item).
+- §3.5 "+50% e afinidade": a afinidade é uma lembrança nova `presente` (+5), no máximo uma por bot a cada `GBANK_GIFT_MEMORY_CD` min.
+- §4 raridade: "comum" = equipamento de queda do tier de R (`gear_pool`); "raro" = capa/amuleto/anel do tier (os da forja); "lendário" = peça do conjunto da build do maior nível lendário <= R (< 50), só com patente Oficial.
+- §4 encomenda de material: `qtd = GBANK_MAT_PER_BOT_H × horas × bots × min(nível médio / nível da faixa, 1,5)` (a fórmula do texto não tinha os bots; 2 bots do 32, 1 h, faixa 32 = 12).
+- Ouro posto no cofre também dá Contribuição (`GBANK_CONTRIB_GOLD` por moeda). O fundador ("lider") usa a mesma tabela de limites pela Contribuição.
+- Pedidos: material e carta se entregam da bolsa; abate conta só depois de aceito (chefe morto com o jogador). Encomenda vai a um mapa (o do monstro da carta, ou a zona de caça da faixa) só para a mensagem.
+- Bot em encomenda: `Sim.guild_mission_away(rid)` (s restantes) para a arena/guerra mostrarem "fora numa encomenda".

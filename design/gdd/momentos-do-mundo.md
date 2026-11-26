@@ -87,3 +87,36 @@ contagem no HUD enquanto a marca vale, e fala dos NPCs da zona.
 | 30-40 | Estepe / Porto | Rinoceronte de Guerra da Horda | Rinoceronte Couraçado |
 | 40-45 | Kharzun | Lobo-Rei de Ferro (lobo gigante de armadura) | Lobo de Ferro Couraçado |
 | 45-50 | Lumeria | Gamo de Porcelana da Festa | Gamo de Porcelana |
+
+## 10. Chefes de mundo: números (2026-11-26, dados; nascimento/anúncio/prêmios = onda 5)
+
+Dados em `MonstersCatalog.WORLD_BOSSES` / `_world_bosses()` (lugar provisório = clareira com 13 m livres, o da sonda) e
+`SkillsCatalog._world_boss_skills()` (`mob_wb_*`). Só para teste até a onda 5: `-- --autostart=<classe> --world_boss=<id>`
+(nasce a 12 m) ou `--world_boss_shot=<pasta>` (fotos da luta e da assinatura). Check `_check_world_boss_data`.
+Todos: chefe de verdade no topo da faixa, escala 3,0 (lobo 2,8), 3 fases (70% lacaios + golpe novo, 40% ward 0,5 com lacaios,
+15% fúria ×1,3), fúria por tempo aos 330 s, lacaios 0 XP (`wb_*`), uma assinatura de chão avisada (não esquivável pela AGI).
+
+| Chefe | Nv | Vida | ATK | Assinatura (forma) | Outros golpes |
+|---|---|---|---|---|---|
+| Javali Ancestral | 10 | 210 000 | 44 | Trilha Ancestral: 3 faixas encadeadas que ele corre (cortejo), atordoa 0,8 s | presa em cone, pisão lento, disparada no longe, vara |
+| Alce Ancião | 20 | 600 000 | 76 | Erupção de Cristal: 3 anéis × 2 pulsos (o lugar seguro anda), prende 1,2 s | galhada, galope, chuva de lascas, bramido (empurra), manada |
+| Basilisco das Ruínas | 30 | 1 200 000 | 125 | Olhar que Petrifica: faixa de 10 × 30 m, 2 s de aviso, atordoa 2,5 s | mordida venenosa, cauda (atordoa), bote, cuspe ácido (poça), estátuas |
+| Rinoceronte de Guerra | 40 | F2 chefe ×22 (≈3,27 M) | F2 ×0,95 (≈133) | Atropelo da Horda: 3 faixas paralelas em sequência, atordoa 1 s | chifrada, investida, pisão, Tambores (grito +20% ATK/vel. de ataque na Horda), lanças, guerreiros |
+| Lobo-Rei de Ferro | 45 | F2 chefe ×10 (≈1,78 M) | F2 ×0,9 (≈144) | Marca da Caçada: 3 marcas que seguem (nunca o tanque) e explodem: espalhar | garra (sangra), salto no longe, queda de ferro (atordoa), uivo da alcateia |
+| Gamo de Porcelana | 50 | F2 chefe ×18 (≈3,73 M) | F2 ×0,78 (≈140) | Clarão das Lanternas: ilhas de luz (mín. 4, 3,5 m); fora delas leva o golpe | galhada, deslize, cascos (atordoa), lanternas que caem, convidados |
+
+Sonda: `boss_probe.tscn -- --party=8 --boss=<id> --trials=20` (8 bots do nível, uma classe de cada; grupo de 5 + 3 soltos;
+`BOSS_CROWD_MULT` para em 5). Alvo: 70-85% de vitórias, luta de 3-5 min.
+
+| Chefe | Vitórias | Tempo médio (vitórias) | Mortes/luta | Situação |
+|---|---|---|---|---|
+| Javali Ancestral | 16/20 (80%) | 170 s | 0,7 | no alvo |
+| Alce Ancião | 11/20 (55%) | 284 s | 4,5 | abaixo do alvo (aberto) |
+| Basilisco das Ruínas | 16/20 (80%) | 251 s | 4,4 | no alvo |
+| Rinoceronte de Guerra | 5/20 (25%) | 240 s | 6,2 | muito abaixo (aberto) |
+| Lobo-Rei de Ferro | 14/20 (70%) | 173 s | 2,3 | no alvo (limite de baixo) |
+| Gamo de Porcelana | 10/20 (50%) | 183 s | 3,8 | abaixo do alvo (aberto) |
+
+Abertos: Alce, Rinoceronte e Gamo ainda difíceis demais para 8 bots (o lugar de nascer mudou na última rodada e mexeu muito
+no resultado: o Rinoceronte foi de 6/8 a 6/20 só com a troca de lugar). Próximo passo: medir com `--why` qual golpe mata
+(suspeitos: Tambores + Atropelo no Rinoceronte, Ilhas no Gamo para 8 pessoas, Bramido/anéis no Alce) antes de mexer em vida/ATK.

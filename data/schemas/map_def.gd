@@ -33,6 +33,7 @@ extends Resource
 @export var interior: bool = false               ## dentro de uma casa da cidade (luz quente, sem grama/névoa, chão só da sala)
 @export var parent_map: String = ""               ## dungeon: zona onde fica a entrada (bots não vão caçar aqui sozinhos)
 @export var mounts_ok: bool = false               ## dungeon que aceita montaria (Cidadela: pátios abertos)
+@export var instance: bool = false                ## instância só do grupo do jogador (Campo de Caça da Guilda): sem portal, bots de fora não entram
 ## lugares do mapa (tools/blender/zones/places.py): {"id":"lenhador","type":"cabin|camp|shrine|dungeon","pos":Vector3}
 @export var places: Array = []
 ## zona estilo Erenshor (data/zones/<id>.json): vila murada como região dentro do mapa
@@ -81,7 +82,7 @@ func has_hunting() -> bool:
 
 ## Masmorra que obriga a andar a pé (dungeon sem `mounts_ok`).
 func no_mount() -> bool:
-	return parent_map != "" and not mounts_ok
+	return (parent_map != "" or instance) and not mounts_ok
 
 func half() -> Vector2:
 	return size * 0.5
