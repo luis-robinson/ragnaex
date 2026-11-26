@@ -1179,6 +1179,11 @@ const GATHER_RESPAWN := 75.0               # s até o ponto voltar
 const STATION_RANGE := 6.0                 # m até o NPC de serviço (depósito) para usar
 const CDR_CAP := 25.0                       # % máximo de recarga a menos em todas as skills (talentos de escolha)
 const PICK_SWAP_TOWN_ONLY := true           # trocar a escolha de uma linha de talentos: só na cidade (de graça)
+## Introdução dos sistemas (GDD design/gdd/introducao-de-sistemas.md §3.1): sistema -> nível em que o NPC chama.
+## O sistema abre ao aceitar a tarefa do NPC (UnlockSystem); "ascension"/"ultimate" já têm missão própria (abrem pelo nível).
+const UNLOCK_LEVELS := {"basics": 1, "web": 2, "shop": 4, "talents": 5, "party": 6, "ranks": 8, "sets": 10, "enhance": 12,
+	"bags": 15, "evolutions": 20, "apex": 30, "ascension": 35, "ultimate": 40}
+const UNLOCK_GRACE_LEVELS := 2              # pulou o NPC: o sistema abre sozinho N níveis depois (§5)
 ## Necromante nv 5 (pedido do jogador 2026-11-16): "Mortos sem Pressa" e "Podridão Lenta"
 const NEC_TALENT_SUMMON_TIME := 2.0         # invocações com tempo duram x2 (as permanentes seguem permanentes)
 const NEC_TALENT_DOT_TIME := 1.25           # dano no tempo (mágico) do necromante dura x1,25
@@ -1257,6 +1262,16 @@ const DASH_NODES := [
 	["dash_evade", "Esquiva Firme", 20, {"iframes": 0.15}],
 	["dash_extra", "Passo Extra", 30, {"charges_add": 1}]]
 const POTION_COOLDOWN := 4.0
+# Auto-poção (GDD design/gdd/auto-pocao.md; só o jogador, por personagem, salvo no save)
+const AUTO_POTION_HP_DEFAULT := 40          # % de vida de quem nunca mexeu
+const AUTO_POTION_MP_DEFAULT := 20          # % de mana de quem nunca mexeu
+const AUTO_POTION_PCT_MIN := 10             # limites do ajuste (- +)
+const AUTO_POTION_PCT_MAX := 90
+const AUTO_POTION_PCT_STEP := 5             # passo do (- +)
+const AUTO_POTION_COMBAT_S := 5.0           # s depois do último dano (dado ou levado) que ainda contam como "em luta" (elixir)
+const AUTO_POTION_HP_SLOT := 0              # vaga padrão de cada linha (0 = F1)
+const AUTO_POTION_MP_SLOT := 1
+const AUTO_POTION_ELX_SLOT := 2
 const AGGRO_LOSE_TIME := 6.0
 const CORPSE_TIME := 1.6
 const PACK_AGGRO_RADIUS := 6.0             # puxou um monstro: os iguais parados a até isto vêm junto (bando)
@@ -1532,6 +1547,11 @@ const PLUS_KHARZUN_LEVEL := 40              # lendário 40+ (Monte Kharzun, D11)
 const PLUS_KHARZUN_GOLD_MULT := 0.6
 const PLUS_KHARZUN_STEEL := "dwarf_steel"
 const PLUS_KHARZUN_EMBER := "kharzun_ember_core"
+## Telas da forja e do refino (GDD design/gdd/forja-e-refino-ui.md §7/§9): só apresentação.
+const CRAFT_BAND_BELOW := 10                 # "Minha faixa": receitas de nível (seu nível - N) até o seu
+const CRAFT_BATCH_MAX := 20                  # teto do "Criar xN"
+const SOURCES_SHOWN := 4                     # fontes no ⓘ "de onde vem"
+const REFINE_CONFIRM_GOLD := 1000            # "Até +N" com total >= isto pede confirmação
 const KHARZUN_JEWEL_LEVEL := 45              # joias/capas de Kharzun (receita com troféu de chefe)
 const KHARZUN_JEWEL_MULT := 1.1               # sobre a peça comum do mesmo nível: o troféu pesa
 const KHARZUN_JEWEL_GOLD := 1500              # ouro da receita (tier 40 cobra 720)

@@ -2257,6 +2257,151 @@ func _check_vfx_v3v5() -> void:
 		check(not (c.h > 0.95 or c.h < 0.04) or c.s < 0.45 or c.v < 0.35, "impacto: marca '%s' sem vermelho saturado (reservado ao aviso)" % th)
 	check(KitModel.THIN_TRAIL_WEAPONS.has("staff") and KitModel.THIN_TRAIL_BASE > 0.5, "V5: fita fina em cajado/foice/cetro")
 
+## Auto-poção (GDD design/gdd/auto-pocao.md §8 1-6 e 8): vida/mana abaixo do % bebem da vaga da linha, linha desligada não bebe,
+## vaga com o tipo errado avisa uma vez, vida e mana no mesmo tique, elixir só em luta e sem o buff, save (TEST_SLOT) e
+## save antigo com os padrões, aba só com personagem, "A" da barra. `--only=auto_potion`
+func _check_auto_potion(gd, sim, save) -> void:
+	var at := Vector3(6, 0, -6)
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "AutoPot", "city_aldara", at, 10)
+	e.brain = null
+	var hp_item: ItemDef = gd.items["potion_hp_s"]
+	var cfg0 := ItemSystem.auto_potion_config(e)
+	check(e.auto_potion.is_empty() and not cfg0["hp_on"] and not cfg0["mp_on"] and not cfg0["elx_on"]
+		and cfg0["hp_pct"] == Balance.AUTO_POTION_HP_DEFAULT and cfg0["mp_pct"] == Balance.AUTO_POTION_MP_DEFAULT
+		and cfg0["hp_slot"] == 0 and cfg0["mp_slot"] == 1 and cfg0["elx_slot"] == 2, "auto-poção: personagem novo desligado, 40%/20%, F1/F2/F3")
+	var c1 := ItemSystem.set_auto_potion(e, {"hp_pct": 93, "mp_pct": 7, "elx_slot": 9, "nada": 1})
+	check(c1["hp_pct"] == Balance.AUTO_POTION_PCT_MAX and c1["mp_pct"] == Balance.AUTO_POTION_PCT_MIN and c1["elx_slot"] == 2 and not c1.has("nada")
+		and ItemSystem.auto_potion_pct(42) == 40 and ItemSystem.auto_potion_pct(43) == 45, "auto-poção: % entre 10 e 90 no passo de 5, vaga 0-2")
+	var notes: Array = [0]
+	var on_note := func(t: String) -> void: notes[0] += 1 if t.begins_with("Auto-poção") else 0
+	Events.notification.connect(on_note)
+	# 1) vida abaixo do % com poção de vida na vaga e recarga zerada: bebe já
+	e.inventory.clear()
+	e.add_item("potion_hp_s", 5)
+	e.add_item("potion_mp_s", 5)
+	e.add_item("elixir_might", 5)
+	e.potion_slots = ["potion_hp_s", "potion_mp_s", "elixir_might"] as Array[String]
+	e.potion_cds = [0.0, 0.0, 0.0] as Array[float]
+	ItemSystem.set_auto_potion(e, {"hp_on": true, "hp_slot": 0, "hp_pct": 40})
+	e.hp = e.stats.max_hp * 0.3
+	e.mp = e.stats.max_mp
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "potion_hp_s") == 4 and is_equal_approx(e.potion_cds[0], hp_item.consume_cooldown), "auto-poção: vida a 30%% (< 40%%) bebe F1, estoque -1, recarga %.1f s" % e.potion_cds[0])
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "potion_hp_s") == 4, "auto-poção: com a recarga correndo espera (não bebe de novo)")
+	e.potion_cds[0] = 0.0
+	e.hp = e.stats.max_hp * 0.5
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "potion_hp_s") == 4, "auto-poção: vida acima do % não bebe")
+	# 2) linha desligada: nada em nenhum %
+	ItemSystem.set_auto_potion(e, {"hp_on": false})
+	e.hp = 1.0
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "potion_hp_s") == 4 and notes[0] == 0, "auto-poção: linha desligada não bebe nem avisa")
+	# 3) linha de vida numa vaga com poção de mana: não bebe, avisa uma vez
+	ItemSystem.set_auto_potion(e, {"hp_on": true, "hp_slot": 1})
+	ItemSystem.auto_potion(sim, e)
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "potion_mp_s") == 5 and notes[0] == 1 and e.potion_cds[1] == 0.0, "auto-poção: vida em vaga de mana não bebe e avisa uma vez (%d avisos)" % notes[0])
+	e.potion_slots[1] = "potion_hp_s"            # a linha segue a vaga: trocou o item, volta a servir
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "potion_hp_s") == 3 and (e.auto_potion_warned & 1) == 0, "auto-poção: vaga voltou a servir, bebe e o aviso rearma")
+	e.potion_slots[1] = "potion_mp_s"
+	ItemSystem.auto_potion(sim, e)
+	check(notes[0] == 2, "auto-poção: vaga errada de novo, novo aviso")
+	# 4) vida e mana abaixo, vagas diferentes: as duas no mesmo tique
+	e.potion_cds = [0.0, 0.0, 0.0] as Array[float]
+	ItemSystem.set_auto_potion(e, {"hp_on": true, "hp_slot": 0, "mp_on": true, "mp_slot": 1, "mp_pct": 20})
+	e.hp = e.stats.max_hp * 0.1
+	e.mp = e.stats.max_mp * 0.1
+	var hp_n := _ap_n(e, "potion_hp_s")
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "potion_hp_s") == hp_n - 1 and _ap_n(e, "potion_mp_s") == 4 and e.potion_cds[0] > 0.0 and e.potion_cds[1] > 0.0,
+		"auto-poção: vida e mana abaixo em F1/F2 saem no mesmo tique")
+	# 5) elixir: em luta e sem o buff bebe; com o buff não; fora de luta não
+	ItemSystem.set_auto_potion(e, {"hp_on": false, "mp_on": false, "elx_on": true, "elx_slot": 2})
+	e.hp = e.stats.max_hp
+	e.drop_buff("elixir")
+	e.last_fight_t = sim.time - Balance.AUTO_POTION_COMBAT_S - 1.0
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "elixir_might") == 5, "auto-poção: elixir fora de luta (> %.0f s sem dano) não bebe" % Balance.AUTO_POTION_COMBAT_S)
+	e.last_fight_t = sim.time
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "elixir_might") == 4 and ItemSystem._has_buff_id(e, "elixir"), "auto-poção: elixir em luta sem o buff bebe")
+	e.potion_cds[2] = 0.0
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "elixir_might") == 4, "auto-poção: elixir com o buff ativo não bebe")
+	e.drop_buff("elixir")
+	e.state = SimEntity.State.DEAD
+	ItemSystem.auto_potion(sim, e)
+	check(_ap_n(e, "elixir_might") == 4, "auto-poção: morto não bebe")
+	e.state = SimEntity.State.IDLE
+	# "em luta" vem do dano de verdade (causado e levado)
+	var mob: SimEntity = sim.spawn_monster(gd.monsters.values()[0], "city_aldara", at + Vector3(2, 0, 0))
+	mob.brain = null
+	e.last_fight_t = -1000.0
+	sim._deal_damage(e, mob, 1, false, false, "physical")
+	check(is_equal_approx(e.last_fight_t, sim.time) and is_equal_approx(mob.last_fight_t, sim.time), "auto-poção: causar e levar dano marcam a hora da luta")
+	sim.despawn(mob)
+	# barra: "A" na vaga armada
+	check(ItemSystem.auto_potion_armed(e, 2) and not ItemSystem.auto_potion_armed(e, 0), "auto-poção: só a vaga com linha ligada fica armada (o A)")
+	Events.notification.disconnect(on_note)
+	# o gancho no tick do jogador (só o jogador)
+	var p: SimEntity = sim.player
+	if p != null and p.is_alive():
+		var keep := [p.hp, p.inventory.duplicate(true), p.potion_slots.duplicate(), p.potion_cds.duplicate(), p.auto_potion.duplicate()]
+		p.add_item("potion_hp_s", 2)
+		var n0 := _ap_n(p, "potion_hp_s")
+		p.potion_slots[0] = "potion_hp_s"
+		p.potion_cds[0] = 0.0
+		ItemSystem.set_auto_potion(p, {"hp_on": true, "hp_slot": 0, "hp_pct": 40})
+		p.hp = maxf(1.0, p.stats.max_hp * 0.2)
+		sim.tick(1.0 / 60.0)
+		check(_ap_n(p, "potion_hp_s") == n0 - 1 and p.potion_cds[0] > 0.0, "auto-poção: o tique do jogador bebe sozinho")
+		p.hp = keep[0]; p.inventory = keep[1]; p.potion_slots = keep[2]; p.potion_cds = keep[3]; p.auto_potion = keep[4]
+	# 6) save: grava e lê todos os campos; save sem o campo abre com os padrões
+	var want := {"hp_on": true, "hp_slot": 2, "hp_pct": 55, "mp_on": true, "mp_slot": 0, "mp_pct": 30, "elx_on": false, "elx_slot": 1}
+	ItemSystem.set_auto_potion(e, want)
+	var keep_slot: int = save.slot
+	save.slot = TEST_SLOT
+	save.save_player(e)
+	var d: Dictionary = save.load_data()
+	var back: SimEntity = sim.spawn_bot(gd.classes["paladin"], "AutoPotVolta", "city_aldara", at + Vector3(0, 0, 3), 10)
+	back.brain = null
+	save.apply_to(back, d)
+	var got := ItemSystem.auto_potion_config(back)
+	var same := true
+	for k in want:
+		same = same and got[k] == want[k]
+	check(d.get("auto_potion") is Dictionary and same, "auto-poção: save grava e lê os 8 campos (%s)" % str(got))
+	var old := d.duplicate(true)
+	old.erase("auto_potion")
+	save.apply_to(back, old)
+	check(ItemSystem.auto_potion_config(back) == ItemSystem.auto_potion_defaults() and back.auto_potion.is_empty(), "auto-poção: save antigo sem o campo abre com os padrões")
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep_slot
+	# 8) aba: some sem personagem (Título), aparece com ele (Esc do jogo) e liga pela sim
+	var sp_title := SettingsPanel.create()
+	add_child(sp_title)
+	check(sp_title.find_child("TabAuto", true, false) == null and sp_title.auto_box == null, "auto-poção: sem personagem (Título) não há aba Auto-poção")
+	sp_title.queue_free()
+	var sp := SettingsPanel.create(null, back)
+	add_child(sp)
+	check(sp.find_child("TabAuto", true, false) != null and sp.auto_rows.size() == 3, "auto-poção: com personagem a aba aparece com 3 linhas")
+	sp.show_tab(SettingsPanel.tab_index("auto"))
+	sp._auto_toggle("hp")
+	sp._auto_step("hp", 1)
+	sp._auto_slot(1, "elx")
+	var cb := ItemSystem.auto_potion_config(back)
+	check(sp.auto_box.visible and cb["hp_on"] and cb["hp_pct"] == Balance.AUTO_POTION_HP_DEFAULT + Balance.AUTO_POTION_PCT_STEP and cb["elx_slot"] == 1
+		and (sp.auto_rows["hp"]["pct"] as Label).text == "%d%%" % cb["hp_pct"], "auto-poção: a aba liga, sobe o % e troca a vaga pela sim")
+	sp.queue_free()
+	sim.despawn(e)
+	sim.despawn(back)
+
+func _ap_n(e: SimEntity, item_id: String) -> int:
+	return int(e.inventory.get(item_id, 0))
+
 ## Teclas trocáveis (Configurações → Controles, KeyBindings): padrões do project.godot (H/G/M viraram ações), trocar a
 ## poção 1 para Z (InputMap, nome na barra/dicas), troca com a outra ação quando a tecla já é usada, teclas fixas recusadas,
 ## gravar só o que difere do padrão e ler de volta (arquivo próprio do teste, nunca o settings.cfg do jogador), restaurar,
@@ -3189,6 +3334,8 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_accessibility_settings(sim)
 	_reseed(sim, "_check_key_bindings")
 	_check_key_bindings(sim)
+	_reseed(sim, "_check_auto_potion")
+	_check_auto_potion(gd, sim, save)
 	_reseed(sim, "_check_vfx_v3v5")
 	_check_vfx_v3v5()
 	_reseed(sim, "_check_loading_steps")
@@ -4689,6 +4836,9 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_ultimate_pet_def(gd, sim)
 	_check_ultimate_dome_stays(gd, sim)
 	_check_skill_book(gd, sim)
+	_check_system_unlocks(gd, sim)
+	_check_unlock_save(gd, sim, save_ref)
+	_check_unlock_recommend(gd, sim)
 	_check_elf_city_inner(gd, sim)
 	_check_quest_blocked_hint(gd, sim)
 	_check_boss_signatures(gd)
@@ -4811,6 +4961,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_mount_keeper_ui(gd, sim)
 	_check_trainer_panel(gd, sim)
 	_check_forge(gd, sim)
+	_check_craft_ui(gd, sim)
+	_check_refine_ui(gd, sim)
 	_check_legend_weapons_and_attrs(gd, sim)
 	_check_item_descriptions(gd)
 	_check_party_personal_loot(gd, sim)
@@ -34208,3 +34360,354 @@ func _check_field_mobs(gd, sim) -> void:
 	sim.despawn(f)
 	sim.despawn(loose)
 	sim.despawn(p)
+
+## Forja/caldeirão novos (design/gdd/forja-e-refino-ui.md §8 1, 2, 5, 6): abas, "Minha faixa", "Só o que posso fazer",
+## ordem, comparação (anel = o pior), fontes do ⓘ e o lote (CraftSystem.max_craftable + CraftPanel.craft_batch). `--only=craft_ui`
+func _check_craft_ui(gd, sim) -> void:
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "ForjaUI", "city_aldara", Vector3(0, 0, 6), 30)
+	e.brain = null
+	e.inventory.clear()
+	e.gold = 0
+	var smith: Array = CraftSystem.recipes_for_station("smith", e.class_def)
+	var tabs: Array = CraftPanel.tabs_of(smith)
+	check("amulet" in tabs and "ring" in tabs and not "potion" in tabs, "forja UI: abas do ferreiro = tipos que ele faz (%s)" % [tabs])
+	check(CraftPanel.tabs_of(CraftSystem.recipes_for_station("alchemy", e.class_def)).has("potion"), "forja UI: caldeirão tem aba Poções")
+	# 1. nível 30 com "Minha faixa": 1ª linha de Amuletos é >= 20, nenhuma abaixo da faixa
+	var band: Array = CraftPanel.rows(e, smith, "amulet", true, false)
+	var low: Array = band.filter(func(x): return x["r"].level_req < e.level - Balance.CRAFT_BAND_BELOW)
+	check(not band.is_empty() and band[0]["r"].level_req >= 20 and not band[0]["above"] and low.is_empty(),
+		"forja UI: nível 30 com Minha faixa abre em receita >= 20 (%s)" % [band[0]["r"].id if not band.is_empty() else "-"])
+	var all: Array = CraftPanel.rows(e, smith, "amulet", false, false)
+	check(all.size() > band.size(), "forja UI: sem o filtro aparecem as de nível baixo (%d > %d)" % [all.size(), band.size()])
+	var ordered := true
+	for i in range(1, all.size()):
+		var a: Dictionary = all[i - 1]
+		var b: Dictionary = all[i]
+		if a["above"] and not b["above"]:
+			ordered = false
+		if not a["above"] and not b["above"] and a["r"].level_req < b["r"].level_req:
+			ordered = false
+	check(ordered, "forja UI: ordem = nível maior primeiro, acima do seu nível no fim")
+	# 2. "Só o que posso fazer" com bolsa montada
+	var pick: RecipeDef = band[0]["r"]
+	for iid in pick.ingredients:
+		e.add_item(iid, int(pick.ingredients[iid]))
+	e.gold = pick.gold_cost
+	var only: Array = CraftPanel.rows(e, smith, "amulet", true, true)
+	check(only.size() >= 1 and only.all(func(x): return x["can"] and x["max"] > 0) and only.any(func(x): return x["r"] == pick) and only.size() < band.size(),
+		"forja UI: Só o que posso fazer esconde as que faltam material (%d de %d)" % [only.size(), band.size()])
+	check(CraftPanel.block_reason(e, pick) == "", "forja UI: com tudo na bolsa não há motivo de bloqueio")
+	# comparação com o vestido; anel compara com o pior dos dois
+	var amu: ItemDef = gd.items.get(pick.result_item)
+	var worn_amu: ItemDef = gd.items.get("amulet_guerreiro_t0")
+	e.equipment[ItemDef.Slot.AMULET] = worn_amu
+	var cmp: Array = CraftPanel.compare(amu, worn_amu)
+	check(CraftPanel.worn_for(e, amu) == worn_amu and not cmp.is_empty() and cmp.any(func(d): return float(d[1]) > 0.0), "forja UI: amuleto novo comparado com o vestido mostra ganho (%s)" % [cmp])
+	var r_lo: ItemDef = gd.items.get("ring_guerreiro_t0")
+	var r_hi: ItemDef = gd.items.get("ring_guerreiro_t2")
+	e.equipment[ItemDef.Slot.RING] = r_hi
+	e.equipment[ItemDef.Slot.RING2] = r_lo
+	check(CraftPanel.worn_for(e, gd.items["ring_sabio_t3"]) == r_lo, "forja UI: anel compara com o pior dos dois vestidos")
+	e.equipment[ItemDef.Slot.RING2] = null
+	check(CraftPanel.worn_for(e, gd.items["ring_sabio_t3"]) == null, "forja UI: vaga de anel livre = nada para comparar")
+	# 5. todo material de receita tem fonte no ⓘ
+	ItemSources.clear_cache()
+	var no_src: Array = []
+	for rid in gd.recipes:
+		for iid in gd.recipes[rid].ingredients:
+			if ItemSources.of(str(iid)).is_empty() and not iid in no_src:
+				no_src.append(iid)
+	check(no_src.is_empty(), "forja UI: todo material de receita tem ao menos uma fonte (%s)" % [no_src])
+	var ore: Array = ItemSources.of("iron_ore", 30)
+	check(not ore.is_empty() and ore[0]["kind"] == "gather" and ItemSources.tip("iron_ore", 30).count("•") <= Balance.SOURCES_SHOWN,
+		"forja UI: Minério de Ferro vem primeiro da colheita; ⓘ mostra até %d fontes" % Balance.SOURCES_SHOWN)
+	var mons: Array = ItemSources.of("boar_tusk", 5).filter(func(x): return x["kind"] == "monster")
+	var near := true
+	for i in range(1, mons.size()):
+		near = near and absi(int(mons[i - 1]["level"]) - 5) <= absi(int(mons[i]["level"]) - 5)
+	check(not mons.is_empty() and near, "forja UI: monstros do nível mais perto primeiro (%d)" % mons.size())
+	# 6. "Criar x5" cria 5 e gasta 5x
+	var rec: RecipeDef = gd.recipes["rec_amulet_guerreiro_t0"]
+	e.inventory.clear()
+	for iid in rec.ingredients:
+		e.add_item(iid, int(rec.ingredients[iid]) * 5)
+	e.gold = rec.gold_cost * 5
+	check(CraftSystem.max_craftable(e, rec) == 5, "forja UI: máximo do lote = 5 com material para 5 (%d)" % CraftSystem.max_craftable(e, rec))
+	var made: int = CraftPanel.craft_batch(e, rec, 5)
+	check(made == 5 and int(e.inventory.get(rec.result_item, 0)) == 5 * rec.result_count and e.gold == 0
+		and rec.ingredients.keys().all(func(k): return not e.inventory.has(k)), "forja UI: Criar x5 cria 5 e gasta 5x (%d)" % made)
+	check(CraftSystem.max_craftable(e, rec) == 0 and CraftPanel.craft_batch(e, rec, 3) == 0, "forja UI: sem material o lote não cria")
+	# bolsa cheia: pilha nova não cabe, nenhum material acaba -> 0 e para
+	e.inventory.clear()
+	for iid in rec.ingredients:
+		e.add_item(iid, int(rec.ingredients[iid]) * 3)
+	e.gold = rec.gold_cost * 3
+	var filler: Array = gd.items.keys().filter(func(k): return gd.items[k].type == ItemDef.Type.MATERIAL and not rec.ingredients.has(k) and k != rec.result_item)
+	var fi := 0
+	while e.inventory.size() < e.bag_capacity() and fi < filler.size():
+		e.add_item(filler[fi], 1)
+		fi += 1
+	check(e.bag_full_for(rec.result_item) and CraftSystem.max_craftable(e, rec) == 0 and CraftPanel.block_reason(e, rec) == "Bolsa cheia"
+		and CraftPanel.craft_batch(e, rec, 3) == 0, "forja UI: bolsa cheia = máximo 0, o lote para e avisa (Bolsa cheia)")
+	e.inventory.erase(filler[0])
+	check(CraftPanel.craft_batch(e, rec, 3) == 3, "forja UI: com 1 espaço o lote inteiro cabe (empilha)")
+	sim.despawn(e)
+
+## Refino novo (design/gdd/forja-e-refino-ui.md §8 3-4): prévia = item que a sim cria, "Até +N" paga a soma e para no
+## alvo, seletor não passa do que o ouro paga, abas Vestido/Bolsa, lendário 40+ fora do Ferreiro Anão. `--only=refine_ui`
+func _check_refine_ui(gd, sim) -> void:
+	var e: SimEntity = sim.spawn_bot(gd.classes["paladin"], "RefinoUI", "city_aldara", Vector3(0, 0, 6), 30)
+	e.brain = null
+	e.inventory.clear()
+	var worn: Array = RefinePanel.rows(e, "worn")
+	var order_ok := true
+	for i in range(1, worn.size()):
+		order_ok = order_ok and UiKit.EQUIP_SLOTS.find(worn[i - 1]["slot"]) < UiKit.EQUIP_SLOTS.find(worn[i]["slot"])
+	check(worn.size() >= 3 and order_ok and RefinePanel.rows(e, "bag").is_empty(), "refino UI: Vestido na ordem do boneco; Bolsa vazia sem peça")
+	# 3. prévia de +3 -> +4 = a peça que a sim cria
+	var sl: int = ItemDef.Slot.BODY
+	var body: ItemDef = e.equipment.get(sl)
+	if body == null:
+		sl = worn[1]["slot"]
+		body = e.equipment[sl]
+	body = GameData.plus_item(RefinePanel.base_of(body), 3)
+	e.equipment[sl] = body
+	e.gold = 1_000_000
+	e.add_item("iron_ore", 400)
+	e.add_item("star_ore", 400)
+	var pv: Array = RefinePanel.preview(body, 4)
+	var made: ItemDef = RefinePanel.refine_to(sim, e, body.id, sl, 4, "smith")
+	var match_ok := made != null and made.plus == 4 and not pv.is_empty()
+	for row in pv:
+		var got := 0
+		match str(row[0]):
+			"ATK": got = roundi(made.atk)
+			"MATK": got = roundi(made.matk)
+			"DEF": got = roundi(made.def)
+			"MDEF": got = roundi(made.mdef)
+			_: got = int(made.attributes.get(row[0], 0))
+		match_ok = match_ok and got == int(row[2]) and int(row[2]) >= int(row[1])
+	check(match_ok, "refino UI: prévia +3 -> +4 bate com o item da sim (%s)" % [pv])
+	check(RefinePanel.glow_name(4) == "nenhum" and RefinePanel.glow_name(Balance.PLUS_GLOW_LOW) == "leve" and RefinePanel.glow_name(Balance.PLUS_MAX) == "forte", "refino UI: degraus do brilho")
+	# 4. "Até +7" de +3 paga a soma certa e deixa +7
+	var wsl: int = ItemDef.Slot.WEAPON
+	var w: ItemDef = GameData.plus_item(RefinePanel.base_of(e.equipment[wsl]), 3)
+	e.equipment[wsl] = w
+	var pl: Dictionary = RefinePanel.plan(sim, w, 7)
+	var sum := 0
+	for k in range(3, 7):
+		sum += int(sim.enhance_cost(GameData.plus_item(RefinePanel.base_of(w), k), k)["gold"])
+	check(int(pl["gold"]) == sum and pl["steps"].size() == 4 and pl["items"].size() == 2, "refino UI: total de +3 a +7 = soma dos passos, com os dois minérios (%s)" % [pl["items"]])
+	e.inventory.clear()
+	e.gold = int(pl["gold"])
+	for iid in pl["items"]:
+		e.add_item(iid, int(pl["items"][iid]))
+	check(RefinePanel.max_target(sim, e, w, wsl, "smith") == 7, "refino UI: ouro e material exatos oferecem até +7")
+	e.gold = int(pl["gold"]) - 1
+	check(RefinePanel.max_target(sim, e, w, wsl, "smith") < 7, "refino UI: sem ouro para tudo o seletor não oferece +7")
+	e.gold = int(pl["gold"])
+	var w7: ItemDef = RefinePanel.refine_to(sim, e, w.id, wsl, 7, "smith")
+	check(w7 != null and w7.plus == 7 and e.equipment[wsl] == w7 and e.gold == 0 and e.inventory.is_empty(), "refino UI: Até +7 paga tudo e deixa a peça +7")
+	check(RefinePanel.refine_to(sim, e, w7.id, wsl, 9, "smith") == null and e.equipment[wsl].plus == 7, "refino UI: sem ouro o lote para no 1º erro")
+	# Bolsa: cópia da bolsa sobe por cópia
+	var spare: ItemDef = RefinePanel.base_of(body)
+	e.add_item(spare.id, 2)
+	e.gold = 1_000_000
+	e.add_item("iron_ore", 50)
+	var bag_rows: Array = RefinePanel.rows(e, "bag")
+	check(bag_rows.size() == 1 and bag_rows[0]["slot"] == -1 and str(bag_rows[0]["where"]).contains("x2"), "refino UI: aba Bolsa lista a cópia da bolsa")
+	var b1: ItemDef = RefinePanel.refine_to(sim, e, spare.id, -1, 2, "smith")
+	check(b1 != null and b1.plus == 2 and e.has_item(b1.id) and int(e.inventory.get(spare.id, 0)) == 1, "refino UI: refinar da bolsa sobe uma cópia só")
+	# lendário 40+ fora do Ferreiro Anão: motivo com o nome do ferreiro certo; seletor parado
+	var lp: Array = GameData.legendary_pool(e.class_def, Balance.PLUS_KHARZUN_LEVEL)
+	if not lp.is_empty():
+		var li: ItemDef = gd.items[lp[0]]
+		e.add_item(li.id, 1)
+		check(RefinePanel.max_target(sim, e, li, -1, "smith") == li.plus and sim.enhance_error(e, li.id, -1, "smith").contains("Ferreiro Anão")
+			and sim.enhance_cost(li, 0)["item"] == Balance.PLUS_KHARZUN_STEEL, "refino UI: lendário 40+ mostra Aço Anão e o motivo no ferreiro comum")
+	check(Sfx.VOL.has("enhance_ok") and ResourceLoader.exists("res://assets/audio/sfx/enhance_ok_1.wav"), "refino UI: som enhance_ok no banco com volume (build_sfx --only=enhance_ok)")
+	check(Balance.REFINE_CONFIRM_GOLD == 1000 and Balance.CRAFT_BAND_BELOW > 0 and Balance.CRAFT_BATCH_MAX >= 10, "refino UI: constantes da tela em Balance")
+	sim.despawn(e)
+
+## Introdução dos sistemas (GDD design/gdd/introducao-de-sistemas.md §8): o que aparece em cada nível, tarefa do NPC abre o
+## sistema, carência de UNLOCK_GRACE_LEVELS, "Já conheço o jogo" e bots com tudo aberto. `--only=unlock`
+func _unlock_player(gd, sim, cid: String, level: int, knows: bool) -> SimEntity:
+	var e: SimEntity = sim.spawn_bot(gd.classes[cid], "Novato", "city_aldara", Vector3(6, 0, -6), level)
+	e.brain = null
+	e.kind = SimEntity.Kind.PLAYER
+	e.quests_active = {}
+	e.quests_completed.clear()
+	UnlockSystem.setup(e, knows)
+	return e
+
+func _check_system_unlocks(gd, sim) -> void:
+	# catálogo: uma quest por sistema com NPC que existe, no nível da tabela, XP 0, tarefa conhecida
+	var npcs := {}
+	for mid in gd.maps:
+		for n in gd.maps[mid].npcs:
+			npcs[str(n.get("id", ""))] = true
+	for sys in QuestsCatalog.INTRO:
+		var q: QuestDef = gd.quests.get(QuestsCatalog.INTRO[sys])
+		check(q != null and Balance.UNLOCK_LEVELS.has(sys) and q.level_req == Balance.UNLOCK_LEVELS[sys] and npcs.has(q.giver_npc) and q.reward_xp == 0
+			and (q.type != QuestDef.Type.TASK or q.target_id in UnlockSystem.TASKS), "introdução: quest de %s existe, NPC %s existe, nível da tabela, XP 0" % [sys, q.giver_npc if q else "?"])
+	# nível 1: só bolsa, personagem (e o menu do Esc)
+	var e := _unlock_player(gd, sim, "paladin", 1, false)
+	var shown: Array = []
+	for m in ActionBar.MICRO:
+		if UnlockSystem.window_open(e, str(m[2])):
+			shown.append(m[2])
+	check(shown == ["inventory", "character", "@menu"], "introdução: no nível 1 o HUD mostra só bolsa, personagem e menu (%s)" % [shown])
+	check(UnlockNotice.text_for(e).contains("Capitã Mira"), "introdução: no nível 1 o aviso chama a Capitã Mira (%s)" % UnlockNotice.text_for(e))
+	# aceitar qualquer quest abre o básico (quests e mapa)
+	QuestSystem.accept(e, gd.quests["in_basics"])
+	check(UnlockSystem.window_open(e, "quests") and UnlockSystem.window_open(e, "@map") and not UnlockSystem.window_open(e, "skills"), "introdução: tarefa da Capitã abre quests e mapa, teia ainda fechada")
+	# cada sistema: fechado um nível antes, NPC chama no nível, aceitar abre
+	for sys in QuestsCatalog.INTRO:
+		var lv: int = Balance.UNLOCK_LEVELS[sys]
+		var q: QuestDef = gd.quests[QuestsCatalog.INTRO[sys]]
+		var a := _unlock_player(gd, sim, "paladin", maxi(1, lv - 1), false)
+		a.level = maxi(1, lv - 1)
+		a.unlocked.erase(sys)
+		check(lv == 1 or (not UnlockSystem.is_unlocked(a, sys) and not QuestSystem.can_accept(a, q)), "introdução: %s fechado no nível %d" % [sys, lv - 1])
+		a.level = lv
+		check(not UnlockSystem.is_unlocked(a, sys) and QuestSystem.can_accept(a, q) and QuestSystem.npc_marker(a, q.giver_npc) in ["!", "?"], "introdução: no %d o NPC de %s tem \"!\"" % [lv, sys])
+		QuestSystem.accept(a, q)
+		check(UnlockSystem.is_unlocked(a, sys) and a.quests_active.has(q.id), "introdução: aceitar a tarefa abre %s" % sys)
+		# carência: sem falar com o NPC abre sozinho depois de UNLOCK_GRACE_LEVELS níveis (e a quest some)
+		var g := _unlock_player(gd, sim, "paladin", lv, false)
+		g.unlocked.erase(sys)
+		g.level = lv + Balance.UNLOCK_GRACE_LEVELS - 1
+		var still := not UnlockSystem.is_unlocked(g, sys)
+		g.level = lv + Balance.UNLOCK_GRACE_LEVELS
+		check(still and UnlockSystem.is_unlocked(g, sys) and not QuestSystem.can_accept(g, q), "introdução: %s abre sozinho no %d sem a tarefa" % [sys, lv + Balance.UNLOCK_GRACE_LEVELS])
+		sim.despawn(a)
+		sim.despawn(g)
+	# janelas por nível (jogador que fala com todo NPC): Teia/Skills no 2, Grupo no 6, Talentos no 5, bolsas no 15
+	var expect := {"skills": "web", "book": "web", "party": "party"}
+	for w in expect:
+		var lv: int = Balance.UNLOCK_LEVELS[expect[w]]
+		var b := _unlock_player(gd, sim, "paladin", lv - 1, false)
+		var before := UnlockSystem.window_open(b, w)
+		b.level = lv
+		QuestSystem.accept(b, gd.quests[QuestsCatalog.INTRO[expect[w]]])
+		check(not before and UnlockSystem.window_open(b, w), "introdução: janela %s aparece no %d" % [w, lv])
+		sim.despawn(b)
+	# tarefas pelo estado: ponto na teia, venda e bolsa
+	var t := _unlock_player(gd, sim, "paladin", 2, false)
+	t.unlocked = {}
+	t.tree = {GameData.trees["paladin"]["start"]: true}
+	t.mastery_points = 3
+	QuestSystem.accept(t, gd.quests["in_web"])
+	check(QuestSystem.progress(t, gd.quests["in_web"]) == 0, "introdução: teia sem ponto gasto = 0/1")
+	var opts: Array = ProgressionSystem.recommend_web(sim, t, "")
+	if not opts.is_empty():
+		sim.tree_allocate(t, str(opts[0]))
+	check(QuestSystem.is_complete(t, gd.quests["in_web"]), "introdução: gastar 1 ponto completa a tarefa da teia")
+	t.level = 4
+	QuestSystem.accept(t, gd.quests["in_shop"])
+	t.add_item("slime_gel", 1)
+	CraftSystem.sell(t, "slime_gel", 1)
+	check(QuestSystem.is_complete(t, gd.quests["in_shop"]), "introdução: vender 1 item completa a tarefa da loja")
+	t.level = 15
+	QuestSystem.accept(t, gd.quests["in_bags"])
+	check(t.has_item("bag_t0") and not QuestSystem.is_complete(t, gd.quests["in_bags"]), "introdução: a Alquimista entrega a bolsa")
+	sim.equip_bag(t, "bag_t0")
+	check(QuestSystem.is_complete(t, gd.quests["in_bags"]), "introdução: vestir a bolsa completa a tarefa")
+	sim.despawn(t)
+	# "Já conheço o jogo" e bots: tudo aberto, nenhuma quest de introdução
+	var k := _unlock_player(gd, sim, "ranger", 1, true)
+	var all_open := ActionBar.MICRO.all(func(m): return UnlockSystem.window_open(k, str(m[2])))
+	check(all_open and UnlockSystem.pending(k).is_empty() and not QuestSystem.can_accept(k, gd.quests["in_basics"]), "introdução: \"Já conheço o jogo\" abre tudo no nível 1, sem tarefas")
+	var bot: SimEntity = sim.spawn_bot(gd.classes["ranger"], "BotIntro", "city_aldara", Vector3(6, 0, -6), 1)
+	bot.brain = null
+	bot.knows_game = false
+	check(UnlockSystem.is_unlocked(bot, "party") and UnlockSystem.window_open(bot, "skills"), "introdução: bots não passam pela introdução")
+	# começo rápido: tudo até o nível do preset
+	var pr := _unlock_player(gd, sim, "ranger", 16, false)
+	check(UnlockSystem.is_unlocked(pr, "bags") and pr.unlocked.has("enhance") and not pr.unlocked.has("evolutions"), "introdução: começo rápido no 16 abre tudo até o 16")
+	for x in [e, k, bot, pr]:
+		sim.despawn(x)
+	# Criação: caixa "Já conheço o jogo" (padrão = já existe outro personagem) vai no pedido
+	var cc := CharCreate.new()
+	cc.setup(TEST_SLOT)
+	add_child(cc)
+	check(cc.knows_box != null and cc.knows_box.button_pressed == SaveSystem.has_save(), "introdução: caixa \"Já conheço o jogo\" na Criação, marcada se já existe personagem")
+	cc.knows_box.button_pressed = false
+	var r: StartRequest = cc.build_request()
+	check(r != null and not r.knows_game, "introdução: caixa desmarcada = pedido com a introdução ligada")
+	cc.knows_box.button_pressed = true
+	check(cc.build_request().knows_game, "introdução: caixa marcada = pedido com tudo aberto")
+	cc.queue_free()
+	check(StartRequest.dev_start("paladin", 1).knows_game == not DevArgs.has("--intro"), "introdução: partida de dev abre tudo (salvo --intro)")
+
+## Save da introdução: `knows_game` e `unlocked` vão e voltam; save antigo (sem as chaves) no 25 abre tudo até o 25. `--only=unlock`
+func _check_unlock_save(gd, sim, save) -> void:
+	var e := _unlock_player(gd, sim, "bishop", 6, false)
+	e.unlocked = {}
+	UnlockSystem.unlock(e, "basics")
+	UnlockSystem.unlock(e, "party")
+	var keep: int = save.slot
+	save.slot = TEST_SLOT
+	save.save_player(e)
+	var d: Dictionary = save.load_data(TEST_SLOT)
+	check(d.has("knows_game") and not bool(d["knows_game"]) and (d["unlocked"] as Array).size() == 2, "introdução: save grava knows_game e a lista de abertos")
+	var b := _unlock_player(gd, sim, "bishop", 1, true)
+	save.apply_to(b, d)
+	check(not b.knows_game and b.unlocked.has("party") and not b.unlocked.has("web"), "introdução: save volta com knows_game e abertos")
+	d.erase("knows_game")
+	d.erase("unlocked")
+	d["level"] = 25
+	var o := _unlock_player(gd, sim, "bishop", 1, true)
+	save.apply_to(o, d)
+	var ok := true
+	for sys in Balance.UNLOCK_LEVELS:
+		if (int(Balance.UNLOCK_LEVELS[sys]) <= 25) != o.unlocked.has(sys):
+			ok = false
+	check(ok and not o.knows_game and UnlockSystem.window_open(o, "party") and not QuestSystem.can_accept(o, gd.quests["in_evolutions"]),
+		"introdução: save antigo no 25 abre tudo até o 25 (sem refazer tarefas); o 30 ainda chama")
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep
+	for x in [e, b, o]:
+		sim.despawn(x)
+
+## "Recomendado" (GDD introducao-de-sistemas §3.4/§9.3/§8): a prévia não mexe no personagem nem no rng, é exatamente o
+## que o bot_spend da build compraria (sem os talentos, que têm aba própria), Confirmar compra tudo, e nunca desfaz
+## escolha do jogador. `--only=unlock`
+func _check_unlock_recommend(gd, sim) -> void:
+	var picks0: bool = ClassTalentSystem.bot_picks
+	for cid in gd.classes:
+		var cls: ClassDef = gd.classes[cid]
+		if cls.builds.is_empty() or not GameData.trees.has(cid):
+			continue
+		var bid: String = cls.builds[0]["id"]
+		var e := _unlock_player(gd, sim, cid, 20, false)
+		e.build_id = ""
+		e.tree = {GameData.trees[cid]["start"]: true}
+		e.talents = {}
+		e.mastery_points = ProgressionSystem.points_for_level(e.level)
+		var pts := e.mastery_points
+		var st: int = sim.rng.state
+		var plan: Array = ProgressionSystem.recommend_web(sim, e, bid)
+		check(e.tree.size() == 1 and e.mastery_points == pts and sim.rng.state == st and ClassTalentSystem.bot_picks == picks0,
+			"recomendado %s: a prévia não compra nada nem anda o rng" % cid)
+		# o mesmo que o bot_spend da build (talentos fora) a partir do mesmo estado
+		var ref := ProgressionSystem.shadow_of(sim, e, bid)
+		ClassTalentSystem.bot_picks = false
+		ProgressionSystem.bot_spend(sim, ref, false, true)
+		ClassTalentSystem.bot_picks = picks0
+		sim.rng.state = st
+		var bot_nodes: Array = ref.tree.keys().filter(func(n): return not e.tree.has(n))
+		check(not plan.is_empty() and plan == bot_nodes, "recomendado %s: gasta exatamente o que o bot_spend gastaria (%d nós)" % [cid, plan.size()])
+		var n: int = sim.apply_plan(e, plan)
+		check(n == plan.size() and e.mastery_points == ref.mastery_points, "recomendado %s: Confirmar compra os %d nós e sobra o mesmo que no bot (%d pts)" % [cid, plan.size(), e.mastery_points])
+		# talentos: uma por linha liberada = bot_choice; a linha que o jogador já escolheu fica
+		var tp: Array = ClassTalentSystem.recommend_picks(sim, e, bid)
+		var rows: Array = ClassTalentsCatalog.rows_of(cid).filter(func(r): return int(r[0]) <= e.level)
+		check(tp.size() == rows.size(), "recomendado %s: uma sugestão de talento por linha liberada (%d)" % [cid, tp.size()])
+		if rows.size() > 0:
+			var mine: Array = rows[0][1].map(func(o): return "%s_c_%s" % [cid, o["id"]]).filter(func(x): return x != tp[0])
+			if not mine.is_empty():
+				e.tree[mine[0]] = true
+				var tp2: Array = ClassTalentSystem.recommend_picks(sim, e, bid)
+				check(not tp2.has(tp[0]) and tp2.size() == rows.size() - 1, "recomendado %s: não troca o talento que o jogador escolheu" % cid)
+		sim.despawn(e)

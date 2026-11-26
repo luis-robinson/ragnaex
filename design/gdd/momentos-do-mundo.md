@@ -77,3 +77,13 @@ contagem no HUD enquanto a marca vale, e fala dos NPCs da zona.
 2. **Uma cadeia piloto primeiro**: Campina (Caravana do Tobias → Feira / Acampamento Bandido); Floresta e Ruínas depois do teste.
 3. **Prêmio igual para todos** os que passaram de `WORLD_BOSS_SHARE_MIN` (dano ou cura); sem bônus de top 3.
 4. **(2026-11-26) Seis chefes de mundo NOVOS**, um modelo próprio no Blender por faixa (com mecânica própria e a montaria temática de `mvp-premios.md`).
+5. **(2026-11-26) Elenco dos 6 chefes de mundo** (modelo novo cada; montaria que dá em `mvp-premios.md`):
+
+| Faixa | Zona | Chefe | Montaria |
+|---|---|---|---|
+| 1-10 | Vale de Aldara | Javali Ancestral | Javali de Guerra |
+| 10-20 | Floresta élfica | Alce Ancião de chifres de cristal | Alce do Bosque |
+| 20-30 | Ruínas / Aurora | Basilisco das Ruínas | Lagarto das Ruínas |
+| 30-40 | Estepe / Porto | Rinoceronte de Guerra da Horda | Rinoceronte Couraçado |
+| 40-45 | Kharzun | Lobo-Rei de Ferro (lobo gigante de armadura) | Lobo de Ferro Couraçado |
+| 45-50 | Lumeria | Gamo de Porcelana da Festa | Gamo de Porcelana |

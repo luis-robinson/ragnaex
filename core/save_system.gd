@@ -261,6 +261,8 @@ func save_player(p: SimEntity) -> void:
 		"bind": [p.bind_map, p.bind_pos.x, p.bind_pos.z],
 		"save_version": VERSION, "bosses_killed": p.bosses_killed.keys(), "gates_open": p.gates_open.keys(), "bags": p.bags.duplicate(), "mount": p.mount_kind,
 		"elemental": ElementalSystem.to_save(p),
+		"auto_potion": ItemSystem.auto_potion_config(p),
+		"knows_game": p.knows_game, "unlocked": p.unlocked.keys(),     # introdução dos sistemas (UnlockSystem)
 	}
 	# gravação atômica: escreve o .tmp inteiro, fecha e só então renomeia por cima do save (fechar no meio não trunca o save bom)
 	var tmp := tmp_of(slot)
@@ -390,6 +392,10 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	while ps.size() < 3:
 		ps.append("")
 	p.potion_slots = ps
+	p.auto_potion = {}                         # save antigo sem o campo: padrões (desligado)
+	var ap = d.get("auto_potion")
+	if ap is Dictionary:
+		ItemSystem.set_auto_potion(p, ap)
 	p.quests_active = {}
 	for k in d.get("quests_active", {}):
 		p.quests_active[k] = int(d["quests_active"][k])
@@ -397,6 +403,7 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	for q in d.get("quests_completed", []):
 		p.quests_completed.append(str(q))
 	p.mount_kind = MountSystem.from_save(p, str(d.get("mount", Balance.MOUNT_DEFAULT)))     # save antigo: cavalo
+	UnlockSystem.from_save(p, d)              # save antigo: tudo até o nível dele aberto
 	ElementalSystem.from_save(p, d)            # save antigo (< 5): experiência 0, forma = a do último elemental
 	# teia de ascensão (save < 5: vazia). Nó que não existe mais: a teia volta ao início (os pontos são calculados)
 	p.asc_tree = {}

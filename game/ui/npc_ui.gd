@@ -6,6 +6,14 @@ var win: PanelContainer = null
 var npc_id := ""
 var npc: Dictionary = {}
 var mode := "dialog"   # dialog | shop | craft | enhance | storage | relic | trainer
+var craft_panel: CraftPanel       # forja/caldeirão (game/ui/craft_panel.gd)
+var refine_panel: RefinePanel     # refino (game/ui/refine_panel.gd)
+var hold_refresh := false         # lote da forja/refino: reconstrói uma vez só no fim
+var force_compact := false        # só dev (--npc_compact): forja/refino em uma coluna
+
+func _init() -> void:
+	craft_panel = CraftPanel.new(self)
+	refine_panel = RefinePanel.new(self)
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -27,7 +35,7 @@ func _refresh_if_mine(entity_id: int) -> void:
 		_refresh_if_open()
 
 func _refresh_if_open() -> void:
-	if win and mode != "dialog":
+	if win and mode != "dialog" and not hold_refresh:
 		_rebuild()
 
 func open(id: String) -> void:
@@ -96,18 +104,24 @@ func _rebuild() -> void:
 		win.modulate.a = 0.0                   # mede depois de um quadro (texto quebrado só tem altura com largura)
 		_fit_compact.call_deferred(win, scroll, body)
 	if keep > 0:
-		_restore_scroll.call_deferred(scroll, keep)
+		_restore_scroll.call_deferred(_scroll, keep)      # forja/refino: _scroll é a lista da coluna da esquerda
 
 ## Diálogo curto (tratador de montarias): sem cartões de quest a janela fica do tamanho do conteúdo, até a altura
 ## normal da lista (340); antes eram 680×470 fixos com 70% vazio.
+## Forja/refino em tela estreita: uma coluna só (detalhe embaixo da lista).
 func _is_compact() -> bool:
+	if mode == "craft" or mode == "enhance":
+		return force_compact or (is_inside_tree() and get_viewport_rect().size.x < TWO_COLUMN_MIN_W)
 	return mode == "dialog" and npc_id in Balance.MOUNT_KEEPER_NPCS
+
+const TWO_COLUMN_MIN_W := 1100.0
 
 func _fit_compact(w: PanelContainer, scroll: ScrollContainer, body: VBoxContainer) -> void:
 	await get_tree().process_frame
 	if not is_instance_valid(w) or w != win:
 		return
-	scroll.custom_minimum_size.y = minf(body.get_combined_minimum_size().y, 340.0)
+	var cap := 560.0 if mode == "craft" or mode == "enhance" else 340.0       # forja/refino: lista curta + detalhe
+	scroll.custom_minimum_size.y = minf(body.get_combined_minimum_size().y, cap)
 	w.reset_size()
 	w.position = (get_viewport_rect().size - w.size) * 0.5
 	w.modulate.a = 1.0
@@ -636,56 +650,17 @@ func _shop_cell(it: ItemDef, count_text: String, price_text: String, dim: bool) 
 	UiKit.corner_label(cell, price_text, SHOP_CELL, false, Color(1.0, 0.45, 0.4) if dim else UiKit.GOLD)
 	return cell
 
-## Ferreiro: aprimora o que está vestido e o equipamento da bolsa. Nunca quebra; +5 brilha leve, +9 brilha forte.
+## Ferreiro: refino (+1..+9, nunca quebra) em duas colunas; regras em ItemSystem (Sim.enhance*). Ver RefinePanel.
 func _enhance(body: VBoxContainer) -> void:
-	var p: SimEntity = Sim.player
-	win.custom_minimum_size = Vector2(760, 420)
-	body.add_child(UiKit.label("Ouro: %d   ·   Minério de Ferro: %d   ·   Minério Estelar: %d" % [p.gold, int(p.inventory.get("iron_ore", 0)), int(p.inventory.get("star_ore", 0))], 13, UiKit.GOLD))
-	if npc_id in Balance.PLUS_KHARZUN_SMITHS:     # Ferreiro Anão: lendário 40+ com Aço Anão (+1..+5) e Brasa de Kharzun (+6..+9)
-		body.add_child(UiKit.label("Aço Anão: %d   ·   Brasa de Kharzun: %d   ·   lendário %d+: Aço Anão até +%d, Brasa de Kharzun do +%d em diante" % [
-			int(p.inventory.get(Balance.PLUS_KHARZUN_STEEL, 0)), int(p.inventory.get(Balance.PLUS_KHARZUN_EMBER, 0)), Balance.PLUS_KHARZUN_LEVEL,
-			Balance.PLUS_STAR_FROM - 1, Balance.PLUS_STAR_FROM], 12, Color(1.0, 0.62, 0.35)))
-	body.add_child(UiKit.para("Sem chance de quebrar. Armadura: +%d%% de DEF e MDEF por nível; arma: +%d%% de ATK e MATK; e +%d%% dos atributos da peça. +%d brilha leve, +%d brilha forte. De +%d em diante pede Minério Estelar." % [
-		int(Balance.PLUS_ARMOR_PCT * 100), int(Balance.PLUS_WEAPON_PCT * 100), int(Balance.PLUS_ATTR_PCT * 100), Balance.PLUS_GLOW_LOW, Balance.PLUS_GLOW_HIGH, Balance.PLUS_STAR_FROM], 11, UiKit.MUTED))
-	var list: Array = []          # [item, onde, slot (-1 = bolsa)]
-	for sl in p.equipment:
-		var it: ItemDef = p.equipment[sl]
-		if it:
-			list.append([it, "vestido", sl])
-	for iid in p.inventory:
-		var bit: ItemDef = GameData.items.get(iid)
-		if bit and bit.is_equipment():
-			var n := int(p.inventory[iid])
-			list.append([bit, "bolsa" + (" x%d" % n if n > 1 else ""), -1])
-	for row in list:
-		var it: ItemDef = row[0]
-		var cur := it.plus
-		var h := HBoxContainer.new()
-		h.add_theme_constant_override("separation", 10)
-		body.add_child(h)
-		var ic := UiKit.icon_cell(it, 36)
-		_tip(ic, UiKit.item_tooltip(it))
-		h.add_child(ic)
-		var nm := UiKit.label("%s  [%s]" % [UiKit.plus_name(it, cur), row[1]], 13, UiKit.rarity_color(it.rarity) if cur < Balance.PLUS_GLOW_LOW else Color(0.6, 0.85, 1.0))
-		nm.custom_minimum_size.x = 300
-		h.add_child(nm)
-		if cur >= Balance.PLUS_MAX:
-			h.add_child(UiKit.label("máximo", 12, UiKit.GOLD))
-			continue
-		var c := Sim.enhance_cost(it, cur)
-		h.add_child(UiKit.label("%d ouro · %d %s" % [int(c["gold"]), int(c["count"]), GameData.items[c["item"]].name], 12, UiKit.TEXT))
-		var err := Sim.enhance_error(p, it.id, int(row[2]), npc_id)
-		var b := UiKit.button("→ +%d" % (cur + 1), _do_enhance.bind(it.id, int(row[2])), 80)
-		b.disabled = err != ""
-		b.tooltip_text = err
-		h.add_child(b)
-	body.add_child(UiKit.hsep())
-	body.add_child(UiKit.button("← Voltar", func(): mode = "dialog"; _rebuild(), 100))
+	_two_columns(body)
+	refine_panel.build(body, _is_compact())
 
-func _do_enhance(item_id: String, slot: int) -> void:
-	if Sim.enhance(Sim.player, item_id, slot, npc_id) != null:
-		hud.windows_script.hide_tip()
-		_rebuild()
+## Janela larga para lista + detalhe (fora do modo compacto).
+func _two_columns(_body: VBoxContainer) -> void:
+	if _is_compact():
+		return
+	win.custom_minimum_size = Vector2(1000, 0)
+	_scroll.custom_minimum_size = Vector2(970, 0)
 
 var craft_cards := {}        # id da receita -> cartão na forja aberta (revisão: --craft_tip)
 
@@ -699,46 +674,10 @@ static func craft_line(it: ItemDef) -> String:
 	var d := it.description.strip_edges()
 	return d if d != "" else UiKit.item_summary(it)
 
+## Forja/caldeirão: abas por tipo, filtros, detalhe com comparação e "Criar xN". Ver CraftPanel.
 func _craft(body: VBoxContainer) -> void:
-	craft_cards.clear()
-	var p: SimEntity = Sim.player
-	var station: String = npc.get("role", "smith")
-	body.add_child(UiKit.label("Ouro: %d   ·   Nível: %d" % [p.gold, p.level], 13, UiKit.GOLD))
-	for r in CraftSystem.recipes_for_station(station, p.class_def):     # só o que a sua classe usa
-		var it: ItemDef = GameData.items.get(r.result_item)
-		var can := CraftSystem.can_craft(p, r)
-		var card := UiKit.panel(UiKit.BG_LIGHT, Color(0.5, 0.9, 0.5) if can else Color(0.3, 0.28, 0.35))
-		card.mouse_filter = Control.MOUSE_FILTER_STOP           # o cartão inteiro (ícone, nome, botão) mostra o item
-		_tip(card, craft_tip.bind(r))
-		craft_cards[r.id] = card
-		body.add_child(card)
-		var h := HBoxContainer.new()
-		card.add_child(h)
-		h.add_child(UiKit.item_icon(it, 32))
-		var v := VBoxContainer.new()
-		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(v)
-		v.add_child(UiKit.label("%s x%d   (Lv %d%s)" % [it.name, r.result_count, r.level_req, (", %d ouro" % r.gold_cost) if r.gold_cost > 0 else ""], 13, UiKit.GOLD if can else UiKit.TEXT))
-		var ing := ""
-		for iid in r.ingredients:
-			var ii: ItemDef = GameData.items.get(iid)
-			var have := int(p.inventory.get(iid, 0))
-			var need := int(r.ingredients[iid])
-			ing += "[color=%s]%s %d/%d[/color]   " % ["#9f9" if have >= need else "#f88", ii.name if ii else iid, have, need]
-		var rt := RichTextLabel.new()
-		rt.bbcode_enabled = true
-		rt.fit_content = true
-		rt.text = ing
-		rt.add_theme_font_size_override("normal_font_size", 11)
-		rt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(rt)
-		var lbl := UiKit.para(craft_line(it), 10, UiKit.MUTED)
-		v.add_child(lbl)
-		var b := UiKit.button("Criar", func(): CraftSystem.craft(p, r), 90)
-		b.disabled = not can
-		h.add_child(b)
-	body.add_child(UiKit.hsep())
-	body.add_child(UiKit.button("← Voltar", func(): mode = "dialog"; _rebuild(), 100))
+	_two_columns(body)
+	craft_panel.build(body, _is_compact())
 
 # ---------------------------------------------------------------------------
 ## Mestre de Skills: sobe o rank (1-5, a maestria de sempre) das skills aprendidas com ouro + materiais da faixa da

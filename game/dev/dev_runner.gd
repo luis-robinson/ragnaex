@@ -299,6 +299,9 @@ func after_start() -> void:
 	if DevArgs.flag("--bag_shot"):      # foto da bolsa e da ficha com uma amostra de cada tipo de item
 		_smoke_test = false
 		_bag_shot(DevArgs.value("--bag_shot"))
+	if DevArgs.flag("--auto_potion_shot"):     # --auto_potion_shot=<pasta>: aba Auto-poção no Esc e o "A" nas vagas da barra; sai
+		_smoke_test = false
+		_auto_potion_shot(DevArgs.value("--auto_potion_shot"))
 	if DevArgs.flag("--ult_shot"):      # --ult_shot=<pasta>: moldura da Suprema (R) travada, vazia, meia, cheia e na trava + chuva no chão; sai
 		_smoke_test = false
 		_ult_shot(DevArgs.value("--ult_shot"))
@@ -1856,6 +1859,33 @@ func _menu_check() -> void:
 	print("RETURN_CHECK views=%d fila=%d" % [main.views.size(), main.view_queue.size()])     # fila com gente longe: a volta não pode tropeçar nela
 	main.hud._menu_to_title()
 
+## --auto_potion_shot=<pasta>: liga Vida (F1) e Elixir (F3) com poções na barra, abre o Esc na aba Auto-poção
+## (<pasta>/auto_tab.png) e fecha para a barra com o "A" (<pasta>/auto_bar.png + recorte auto_bar_crop.png).
+func _auto_potion_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	await get_tree().create_timer(2.5).timeout
+	Sim.sync()
+	var p: SimEntity = Sim.player
+	for it in ["potion_hp_s", "potion_mp_s", "elixir_might"]:
+		p.add_item(it, 5)
+	p.potion_slots = ["potion_hp_s", "potion_mp_s", "elixir_might"] as Array[String]
+	Sim.set_auto_potion(p, {"hp_on": true, "hp_pct": 45, "elx_on": true})
+	await get_tree().create_timer(0.5).timeout
+	main.hud.open_game_menu()
+	var sps: Array = main.hud.game_menu.find_children("*", "SettingsPanel", true, false)
+	(sps[0] as SettingsPanel).show_tab(SettingsPanel.TAB_AUTO)
+	await get_tree().create_timer(0.5).timeout
+	get_viewport().get_texture().get_image().save_png(dir.path_join("auto_tab.png"))
+	main.hud.close_game_menu()
+	await get_tree().create_timer(0.5).timeout
+	var img := get_viewport().get_texture().get_image()
+	img.save_png(dir.path_join("auto_bar.png"))
+	var r: Rect2 = main.hud.action_bar.get_global_rect()
+	var k := Vector2(img.get_size()) / get_viewport().get_visible_rect().size     # janela esticada: rect lógico -> pixels
+	img.get_region(Rect2i(r.position * k, r.size * k)).save_png(dir.path_join("auto_bar_crop.png"))
+	print("AUTO_POTION_SHOT ok ", ItemSystem.auto_potion_config(p))
+	get_tree().quit()
+
 ## --ult_shot=<pasta>: estados da moldura do R (GDD ultimates-lv40 §8): travada (nível 35), vazia, meia, cheia, na trava
 ## depois de soltar; recorte da barra em <pasta>/ult_<estado>.png e a tela inteira da cheia e da Chuva de Meteoros caindo.
 ## Use com `-- --autostart=elementalist --ascend --level=40 --build_i=0` (a 1ª build do Elementalista é o Fogo).
@@ -2492,6 +2522,8 @@ func _bag_shot(path: String) -> void:
 	for w in wins:
 		if w != "":
 			main.hud.windows_script.toggle(w)
+	if DevArgs.has("--rec_preview"):          # janela K com a prévia do "Recomendado" acesa (introdução dos sistemas)
+		main.hud.windows_script._rec_preview()
 	if DevArgs.has("--hotbar_drag_check"):    # mouse simulado: poção da bolsa -> F3, skill da janela K -> slot 6
 		await _hotbar_drag_check()
 	if DevArgs.has("--ui_click_check"):       # mouse real (Input.parse_input_event): clique em janela/barra não ataca, no mundo ataca
@@ -2515,23 +2547,36 @@ func _bag_shot(path: String) -> void:
 	if DevArgs.has("--craft_tip") or DevArgs.flag("--craft_tip"):      # forja/caldeirão: mouse sobre o cartão (--craft_tip=<receita>, padrão: 1º amuleto)
 		var station := "alchemist" if DevArgs.value("--craft_tip").begins_with("rec_cape") or DevArgs.value("--craft_tip").begins_with("rec_bag") or DevArgs.value("--craft_tip").begins_with("rec_potion") else "smith"
 		main.hud.windows_script.close_all()
+		main.hud.npc_ui.force_compact = DevArgs.has("--npc_compact")      # janela estreita: uma coluna
+		if DevArgs.has("--craft_mats") and GameData.recipes.has(DevArgs.value("--craft_tip")):     # material para 5 da receita (lote)
+			var mr: RecipeDef = GameData.recipes[DevArgs.value("--craft_tip")]
+			for k in mr.ingredients:
+				Sim.player.add_item(k, int(mr.ingredients[k]) * 5)
+			Sim.player.gold = maxi(Sim.player.gold, mr.gold_cost * 5)
+			for i in range(Balance.BAG_SLOTS):        # bolsas grandes: a amostra de bolsa cheia não trava o lote
+				Sim.player.add_item("bag_t3", 1)
+				Sim.equip_bag(Sim.player, "bag_t3", i)
 		main.hud.npc_ui.open(station)
 		main.hud.npc_ui.mode = "craft"
+		var rid := DevArgs.value("--craft_tip")
+		if rid != "" and GameData.recipes.has(rid):       # aba da receita + seleção
+			var cp: CraftPanel = main.hud.npc_ui.craft_panel
+			cp.tab[cp.station()] = CraftPanel.tab_of(GameData.items.get(GameData.recipes[rid].result_item))
+			cp.selected[cp.station()] = rid
 		main.hud.npc_ui._rebuild()
 		await get_tree().process_frame
 		await get_tree().process_frame
-		var rid := DevArgs.value("--craft_tip")
 		if rid == "":
-			for k in main.hud.npc_ui.craft_cards:
-				if str(k).begins_with("rec_amulet"):
-					rid = k
-					break
+			rid = main.hud.npc_ui.craft_panel.selected.get(main.hud.npc_ui.craft_panel.station(), "")
 		var cc: Control = main.hud.npc_ui.craft_cards.get(rid)
-		if cc:
-			main.hud.npc_ui._scroll.ensure_control_visible(cc)
-			await get_tree().process_frame
+		var src: Control = null
+		if DevArgs.has("--craft_src"):         # mouse sobre o 1º material que falta: abre o ⓘ "de onde vem"
+			for iid in main.hud.npc_ui.craft_panel.mat_rows:
+				if src == null or not Sim.player.has_item(iid, 1):
+					src = main.hud.npc_ui.craft_panel.mat_rows[iid]
+		if src:
 			var mv := InputEventMouseMotion.new()
-			mv.position = cc.get_global_transform_with_canvas() * Vector2(30, cc.size.y * 0.5)      # em cima do ícone
+			mv.position = src.get_global_transform_with_canvas() * Vector2(14, src.size.y * 0.5)
 			mv.global_position = mv.position
 			get_viewport().push_input(mv, true)
 			Input.warp_mouse(mv.position)
@@ -2556,7 +2601,7 @@ func _bag_shot(path: String) -> void:
 		for sl in pp.equipment:
 			var eit: ItemDef = pp.equipment[sl]
 			if eit:
-				pp.equipment[sl] = GameData.plus_item(eit, 9 if sl == ItemDef.Slot.WEAPON else (5 if sl == ItemDef.Slot.BODY else 2))
+				pp.equipment[sl] = GameData.plus_item(eit, 9 if sl == ItemDef.Slot.WEAPON else ((4 if DevArgs.flag("--refine_to") else 5) if sl == ItemDef.Slot.BODY else 2))
 		pp.recompute_stats()
 		Events.equipment_changed.emit(pp.id)
 		main.hud.windows_script.close_all()
@@ -2565,9 +2610,27 @@ func _bag_shot(path: String) -> void:
 			main.hud.root.visible = false
 			await get_tree().create_timer(0.8).timeout
 		else:
+			main.hud.npc_ui.force_compact = DevArgs.has("--npc_compact")
 			main.hud.npc_ui.open(smith_id)
 			main.hud.npc_ui.mode = "enhance"
-			main.hud.npc_ui._rebuild()
+			var rp: RefinePanel = main.hud.npc_ui.refine_panel
+			if DevArgs.flag("--refine_to"):        # peito +4 selecionado e refinado até +N: o clarão e "A peça brilha!"
+				var body_it: ItemDef = pp.equipment.get(ItemDef.Slot.BODY)
+				if body_it:
+					rp.sel_id = body_it.id
+					rp.sel_slot = ItemDef.Slot.BODY
+					main.hud.npc_ui._rebuild()
+					await get_tree().process_frame
+					rp.do_refine(body_it.id, ItemDef.Slot.BODY, int(DevArgs.value("--refine_to")))
+					await get_tree().create_timer(0.08).timeout
+			elif DevArgs.flag("--refine_target"):   # alvo do "Até +N" no peito
+				var bi: ItemDef = pp.equipment.get(ItemDef.Slot.BODY)
+				if bi:
+					rp.sel_id = bi.id
+					rp.sel_slot = ItemDef.Slot.BODY
+					rp.target = int(DevArgs.value("--refine_target"))
+			if not DevArgs.flag("--refine_to"):
+				main.hud.npc_ui._rebuild()
 	if DevArgs.has("--trainer"):          # Mestre de Skills: ouro + materiais de amostra, painel aberto sem exigir o NPC por perto
 		var tp := Sim.player
 		tp.gold = int(DevArgs.value("--gold", "3000"))

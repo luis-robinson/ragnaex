@@ -1,7 +1,8 @@
 class_name QuestDef
 extends Resource
 
-enum Type { KILL, COLLECT, TALK, CRAFT, REACH, DEFEND }     ## DEFEND: levas repelidas no mapa `target_id` com o jogador na defesa (SiegeSystem)
+enum Type { KILL, COLLECT, TALK, CRAFT, REACH, DEFEND, TASK }     ## DEFEND: levas repelidas no mapa `target_id` com o jogador na defesa (SiegeSystem)
+## TASK: tarefa de introdução (`target_id` = tarefa de UnlockSystem.TASKS; progresso pelo estado do personagem)
 
 @export var id: String = ""
 @export var title: String = ""

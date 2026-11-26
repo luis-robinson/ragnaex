@@ -988,3 +988,41 @@ static func role_of(sim: WorldSim, e: SimEntity) -> String:
 	if e.class_def == null:
 		return "dps"
 	return str(e.class_def.build_by_id(main_build(sim, e)).get("role", "dps"))
+
+## "Recomendado" da teia (GDD introducao-de-sistemas §3.4/§9.3): os nós, em ordem de compra, que o bot da build
+## `build_id` ("" = main_build) compraria com os pontos livres de `e`. Não mexe em `e`: roda o bot_spend numa cópia de
+## sombra, sem os talentos de classe (aba própria: ClassTalentSystem.recommend_picks) e com o rng da sim de volta ao
+## estado de antes. Só soma: nunca desfaz uma compra do jogador. Ex.: `for nid in recommend_web(sim, p): tree_allocate(sim, p, nid)`.
+static func recommend_web(sim: WorldSim, e: SimEntity, build_id: String = "") -> Array:
+	var out: Array = []
+	if e.class_def == null or e.mastery_points <= 0 or tree_of(sim, e).is_empty():
+		return out
+	var sh := shadow_of(sim, e, build_id)
+	var st: int = sim.rng.state
+	var picks := ClassTalentSystem.bot_picks
+	ClassTalentSystem.bot_picks = false
+	bot_spend(sim, sh, false, true)
+	ClassTalentSystem.bot_picks = picks
+	sim.rng.state = st
+	for nid in sh.tree:
+		if not e.tree.has(nid):
+			out.append(nid)
+	return out
+
+## Cópia de `e` só com o que a teia usa (id -1: os avisos da sim não chegam à tela). `build_id` "" = main_build.
+static func shadow_of(sim: WorldSim, e: SimEntity, build_id: String = "") -> SimEntity:
+	var sh := SimEntity.new()
+	sh.id = -1
+	sh.kind = e.kind
+	sh.class_def = e.class_def
+	sh.level = e.level
+	sh.build_id = build_id if build_id != "" else main_build(sim, e)
+	sh.map_id = e.map_id
+	sh.position = e.position
+	sh.tree = e.tree.duplicate()
+	sh.asc_tree = e.asc_tree.duplicate()
+	sh.learned = e.learned.duplicate()
+	sh.talents = e.talents.duplicate()
+	sh.mastery = e.mastery.duplicate()
+	sh.mastery_points = e.mastery_points
+	return sh

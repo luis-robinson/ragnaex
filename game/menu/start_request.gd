@@ -19,6 +19,7 @@ var char_name := ""
 var load_save := false           # true = carregar o save de `slot`
 var look: Dictionary = {}        # SimEntity.look da criação
 var preset := 1                  # começo rápido (StartCatalog.PRESETS); 1 = nível 1 normal
+var knows_game := true           # "Já conheço o jogo" da Criação (false = introdução dos sistemas, UnlockSystem)
 var slot := -1                   # SaveSystem.slot do personagem; -1 = partida de teste (nunca grava)
 var dev := false                 # partida de dev (--autostart, --tour...): montagem síncrona, sem Carregamento
 var held: Array = []             # Resources carregados em thread, guardados vivos até o `main` avisar "pronto" (§7)
@@ -26,13 +27,14 @@ var load_paths: PackedStringArray = []     # o que o Carregamento pediu em threa
 var loading: Node = null         # overlay de Carregamento na raiz (o `main` libera depois do "pronto")
 
 ## Personagem novo vindo da Criação, no espaço livre `slot`.
-static func new_character(cls_id: String, name: String, look_: Dictionary, preset_: int, slot_: int) -> StartRequest:
+static func new_character(cls_id: String, name: String, look_: Dictionary, preset_: int, slot_: int, knows_: bool = true) -> StartRequest:
 	var r := StartRequest.new()
 	r.class_id = cls_id
 	r.char_name = name
 	r.look = look_.duplicate()
 	r.preset = preset_
 	r.slot = slot_
+	r.knows_game = knows_
 	return r
 
 ## Personagem salvo no espaço `slot` (classe/nome do resumo; o save manda no `start_game`).
@@ -52,6 +54,7 @@ static func dev_start(cls_id: String, preset_: int) -> StartRequest:
 	r.preset = preset_
 	r.slot = -1
 	r.dev = true
+	r.knows_game = not DevArgs.has("--intro")     # revisão da introdução: --intro
 	return r
 
 ## Consome e solta as cargas em thread ainda não entregues (`load_paths`): falha no Carregamento antes do

@@ -430,6 +430,105 @@ static func use_potion(sim: WorldSim, e: SimEntity, slot: int) -> bool:
 	Events.post(&"potion_used", e.id, slot)
 	return true
 
+# ------------------------------------------------------------------ auto-poção (GDD design/gdd/auto-pocao.md)
+## Linhas da auto-poção: [chave do liga/desliga, chave da vaga, bit do aviso, nome no aviso].
+const AUTO_LINES := [["hp_on", "hp_slot", 1, "vida"], ["mp_on", "mp_slot", 2, "mana"], ["elx_on", "elx_slot", 4, "elixir"]]
+
+## Padrões de personagem novo / save antigo (§3.1): tudo desligado, % e vagas do Balance.
+static func auto_potion_defaults() -> Dictionary:
+	return {"hp_on": false, "hp_slot": Balance.AUTO_POTION_HP_SLOT, "hp_pct": Balance.AUTO_POTION_HP_DEFAULT,
+		"mp_on": false, "mp_slot": Balance.AUTO_POTION_MP_SLOT, "mp_pct": Balance.AUTO_POTION_MP_DEFAULT,
+		"elx_on": false, "elx_slot": Balance.AUTO_POTION_ELX_SLOT}
+
+## Configuração completa de `e` (cópia; campo vazio = padrão). A interface e o save leem por aqui.
+static func auto_potion_config(e: SimEntity) -> Dictionary:
+	var cfg := auto_potion_defaults()
+	for k in e.auto_potion:
+		if cfg.has(k):
+			cfg[k] = e.auto_potion[k]
+	return cfg
+
+## % saneado: entre AUTO_POTION_PCT_MIN/MAX, no passo AUTO_POTION_PCT_STEP.
+static func auto_potion_pct(v: int) -> int:
+	var st := Balance.AUTO_POTION_PCT_STEP
+	return clampi(int(round(float(v) / st)) * st, Balance.AUTO_POTION_PCT_MIN, Balance.AUTO_POTION_PCT_MAX)
+
+## Muda só as chaves dadas (as que não existem são ignoradas), saneia e zera os avisos. Devolve a configuração nova.
+## Ex.: `Sim.set_auto_potion(p, {"hp_on": true, "hp_pct": 45})`.
+static func set_auto_potion(e: SimEntity, changes: Dictionary) -> Dictionary:
+	var cfg := auto_potion_config(e)
+	for k in changes:
+		if not cfg.has(k):
+			continue
+		var key: String = k
+		if key.ends_with("_on"):
+			cfg[key] = bool(changes[k])
+		elif key.ends_with("_slot"):
+			cfg[key] = clampi(int(changes[k]), 0, 2)
+		else:
+			cfg[key] = auto_potion_pct(int(changes[k]))
+	e.auto_potion = cfg
+	e.auto_potion_warned = 0
+	return cfg
+
+## A vaga `slot` tem alguma linha ligada (o "A" da barra)?
+static func auto_potion_armed(e: SimEntity, slot: int) -> bool:
+	var ap := e.auto_potion
+	if ap.is_empty():
+		return false
+	for ln in AUTO_LINES:
+		if bool(ap.get(ln[0], false)) and int(ap.get(ln[1], -1)) == slot:
+			return true
+	return false
+
+## O item da vaga serve para a linha (bit 1 vida, 2 mana, 4 elixir)? Precisa existir na bolsa.
+static func _auto_fits(e: SimEntity, slot: int, bit: int) -> bool:
+	var item_id: String = e.potion_slots[slot]
+	if item_id == "" or not e.has_item(item_id) or not GameData.items.has(item_id):
+		return false
+	var c: Dictionary = (GameData.items[item_id] as ItemDef).consume
+	if bit == 1:
+		return c.has("heal") or c.has("heal_pct")
+	if bit == 2:
+		return c.has("mana") or c.has("mana_pct")
+	return c.get("buff") is Dictionary and str(c["buff"].get("id", "")) != ""
+
+static func _has_buff_id(e: SimEntity, id: String) -> bool:
+	for b in e.buffs:
+		if b.get("id") == id:
+			return true
+	return false
+
+## Linha com a condição verdadeira: bebe se a vaga serve e a recarga está zerada; vaga que não serve avisa uma vez.
+static func _auto_line(sim: WorldSim, e: SimEntity, ln: Array, cfg: Dictionary) -> void:
+	var slot: int = cfg[ln[1]]
+	var bit: int = ln[2]
+	if slot < 0 or slot > 2 or not _auto_fits(e, slot, bit):
+		if (e.auto_potion_warned & bit) == 0:
+			e.auto_potion_warned |= bit
+			Events.post(&"notification", "Auto-poção: sem %s em F%d" % ["poção de " + str(ln[3]) if bit != 4 else "elixir", slot + 1])
+		return
+	e.auto_potion_warned &= ~bit
+	if bit == 4:
+		var item: ItemDef = GameData.items[e.potion_slots[slot]]
+		if _has_buff_id(e, str(item.consume["buff"]["id"])):
+			return                           # efeito ainda ativo (deste ou de outra fonte com o mesmo id)
+	if e.potion_cds[slot] <= 0.0:
+		use_potion(sim, e, slot)
+
+## Tick do jogador (WorldSim.tick, só com `auto_potion` preenchido): vida, depois mana, depois elixir (§3.3-3.4).
+## Sem alocar: só leituras do dicionário; cada linha desligada sai na primeira comparação.
+static func auto_potion(sim: WorldSim, e: SimEntity) -> void:
+	if not e.is_alive():
+		return
+	var ap := e.auto_potion
+	if bool(ap.get("hp_on", false)) and e.hp < e.stats.max_hp * float(ap["hp_pct"]) / 100.0:
+		_auto_line(sim, e, AUTO_LINES[0], ap)
+	if bool(ap.get("mp_on", false)) and e.mp < e.stats.max_mp * float(ap["mp_pct"]) / 100.0:
+		_auto_line(sim, e, AUTO_LINES[1], ap)
+	if bool(ap.get("elx_on", false)) and sim.time - e.last_fight_t <= Balance.AUTO_POTION_COMBAT_S:
+		_auto_line(sim, e, AUTO_LINES[2], ap)
+
 ## Por que `e` não pode equipar `item` (no slot dado); "" = pode.
 static func equip_error(sim: WorldSim, e: SimEntity, item: ItemDef, to_offhand: bool = false) -> String:
 	if item == null or not item.is_equipment():

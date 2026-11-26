@@ -603,6 +603,18 @@ def s_forge_hammer(rng):
 	return out
 
 
+def s_enhance_ok(rng):
+	"""Refino pronto (forja-e-refino-ui §3.2): duas marteladas na bigorna e um brilho de sino por cima."""
+	out = zeros(1.1)
+	for at, g, f in [(0.0, 0.7, 900.0), (0.16, 1.0, 960.0)]:
+		add(out, bell(0.7, f, decay=6.0), at, g * 0.5)
+		add(out, tone(0.5, f * 2.76, decay=8, harm=[(1.47, 0.4)]), at, g * 0.2)
+		add(out, highpass(noise(0.04, rng, decay=80, attack=0.0005), 2500), at, g * 0.7)
+	for k, st in enumerate([12, 16, 19]):
+		add(out, bell(0.7, NOTE(st), decay=4.5), 0.3 + k * 0.06, 0.22)
+	return out
+
+
 def s_chain_break(rng):
 	"""Corrente partindo: elo estala, os pedaços tilintam e caem no chão de pedra."""
 	out = zeros(1.0)
@@ -1186,6 +1198,8 @@ SYNTH = {
 	"smoke_vanish": (s_smoke_vanish, 3), "dire_howl": (s_dire_howl, 3), "salamander_hiss": (s_salamander_hiss, 3),
 	"salamander_die": (s_salamander_die, 2), "golem_rumble": (s_golem_rumble, 2), "golem_crumble": (s_golem_crumble, 2),
 	"boulder": (s_boulder, 3), "banner_plant": (s_banner_plant, 2),
+	# refino pronto no ferreiro (design/gdd/forja-e-refino-ui.md)
+	"enhance_ok": (s_enhance_ok, 1),
 	# assinaturas dos chefes (design/gdd/act2-boss-signatures.md): aviso do desenho no chão e o tambor que rasga
 	"sig_warn": (s_sig_warn, 2), "drum_tear": (s_drum_tear, 2),
 	# Mata dos Zumbidos (4-8): vespas, ursos e a colmeia

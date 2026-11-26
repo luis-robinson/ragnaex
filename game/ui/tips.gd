@@ -130,11 +130,11 @@ func _check() -> void:
 		request("potion")
 	if not Sim.nearest_gather(p).is_empty():
 		request("gather")
-	if p.level >= 2:
+	if p.level >= 2 and UnlockSystem.is_unlocked(p, "web"):     # introdução: a dica sai com o sistema
 		request("web")
 	if p.level >= 3:
 		request("mount")
-	if p.level >= 5:
+	if p.level >= 5 and UnlockSystem.is_unlocked(p, "talents"):
 		request("talents")
 	if p.level >= 3 and not foe:
 		var def: MapDef = GameData.maps.get(p.map_id)

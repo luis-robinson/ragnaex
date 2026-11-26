@@ -13,6 +13,7 @@ const SKILL_PX := 50
 const POTION_PX := 42
 const ASC_GOLD := Color(1.0, 0.8, 0.35)      # filete das vagas de ascensão
 const ULT_PX := 62                              # moldura da Suprema (R): maior que as vagas
+const AUTO_MARK := Color(0.55, 1.0, 0.6)       # "A" da auto-poção armada na vaga
 
 var hud
 var skill_slots: Array = []         # 1-6 e, ascendido, 7 8 9 0 (Balance.ASC_SLOTS, só skills de ascensão)
@@ -36,7 +37,8 @@ var ult: UltFrame                   # moldura redonda da Suprema (R), à esquerd
 const MICRO := [["ui_inventory", "Bolsa", "inventory"], ["ui_character", "Personagem", "character"], ["ui_book", "Skills", "book"],
 	["ui_skills", "Teia", "skills"], ["ui_quests", "Quests", "quests"], ["ui_party", "Grupo", "party"], ["ui_map", "Mapa", "@map"],
 	["", "Menu", "@menu"]]
-var micro_buttons: Array = []       # [Button, ação, nome] na ordem de MICRO
+var micro_buttons: Array = []       # [Button, ação, nome, janela] na ordem de MICRO
+var _unlock_t := 0.0                # s até reconferir os atalhos liberados (introdução dos sistemas)
 var _keys_rev := -1                 # KeyBindings.revision já desenhada
 
 func build() -> void:
@@ -98,6 +100,17 @@ func build() -> void:
 	for i in range(3):
 		var s := make_button(KeyBindings.short("potion_%d" % (i + 1)), POTION_PX)
 		s["root"].size_flags_vertical = Control.SIZE_SHRINK_END
+		var auto := UiKit.label("A", 11, AUTO_MARK)          # auto-poção armada nesta vaga (GDD auto-pocao §3.2)
+		auto.name = "AutoMark"
+		auto.add_theme_constant_override("outline_size", 3)
+		auto.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		auto.anchor_left = 1.0; auto.anchor_right = 1.0
+		auto.offset_left = -12; auto.offset_right = -2; auto.offset_top = -1; auto.offset_bottom = 14
+		auto.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		auto.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		auto.visible = false
+		(s["tex"] as Control).get_parent().add_child(auto)
+		s["auto"] = auto
 		row.add_child(s["root"])
 		potion_slots.append(s)
 	row.add_child(_divider())
@@ -122,7 +135,7 @@ func build() -> void:
 	for m in MICRO:
 		var mb := _micro(micro_key(m[0]), m[1], m[2])
 		grid.add_child(mb)
-		micro_buttons.append([mb, m[0], m[1]])
+		micro_buttons.append([mb, m[0], m[1], m[2]])
 	var cap := Crest.new()
 	cap.kind = "sun"
 	row.add_child(cap)
@@ -136,6 +149,29 @@ func _process(_delta: float) -> void:
 		refresh_keys()
 	if Sim.player:
 		set_mount_kind(Sim.player.mount_kind)
+	_unlock_t -= _delta
+	if _unlock_t <= 0.0:
+		_unlock_t = 0.5
+		refresh_unlocks()
+
+## Atalho de sistema ainda não liberado some (GDD introducao-de-sistemas §3.2; UnlockSystem.window_open).
+func refresh_unlocks() -> void:
+	var p: SimEntity = Sim.player
+	for mb in micro_buttons:
+		var b: Button = mb[0]
+		var on: bool = p == null or UnlockSystem.window_open(p, str(mb[3]))
+		if b.visible != on:
+			b.visible = on
+		update_auto_marks(Sim.player)
+
+## "A" pequeno nas vagas de poção com uma linha da auto-poção ligada.
+func update_auto_marks(p: SimEntity) -> void:
+	for i in potion_slots.size():
+		var m: Label = potion_slots[i].get("auto")
+		if m:
+			var armed := ItemSystem.auto_potion_armed(p, i)
+			if m.visible != armed:
+				m.visible = armed
 
 ## Tecla do botão de atalho de uma ação ("" = Esc, fixa).
 static func micro_key(action: String) -> String:

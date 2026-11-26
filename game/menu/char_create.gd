@@ -46,6 +46,7 @@ var menu_set: MenuSet = null
 var preview: PedestalPreview = null
 var kit: KitModel = null
 var name_edit: LineEdit
+var knows_box: CheckBox                 # "Já conheço o jogo" (GDD introducao-de-sistemas §9.4): por personagem
 
 var _rng := RandomNumberGenerator.new()
 var _title: Label
@@ -151,12 +152,16 @@ func chosen_name() -> String:
 	var n := name_edit.text.strip_edges() if name_edit else ""
 	return n.left(NAME_MAX) if n != "" else DEFAULT_NAME
 
+## "Já conheço o jogo" começa marcado quando já existe outro personagem (§9.4).
+static func default_knows_game() -> bool:
+	return SaveSystem.has_save()
+
 ## Pedido de personagem novo (null se não há espaço livre nem classe).
 func build_request() -> StartRequest:
 	var slot := target_slot if target_slot >= 0 else SaveSystem.first_free_slot()
 	if selected == null or slot < 0:
 		return null
-	return StartRequest.new_character(selected.id, chosen_name(), look.duplicate(), preset, slot)
+	return StartRequest.new_character(selected.id, chosen_name(), look.duplicate(), preset, slot, knows_box.button_pressed if knows_box else true)
 
 ## Skill-assinatura que a classe mostra: a da build da arma inicial (senão a 1ª build; senão a 1ª skill inicial).
 static func signature_skill(cls: ClassDef) -> SkillDef:
@@ -283,6 +288,14 @@ func _build() -> void:
 	nh.add_child(dice)
 	lv.add_child(_btn("🎲  Visual aleatório", _random_look))
 	lv.add_child(UiKit.label("Arraste o personagem para girar · roda do mouse aproxima", 12, UiKit.MUTED))
+	knows_box = CheckBox.new()
+	knows_box.name = "KnowsGame"
+	knows_box.text = "Já conheço o jogo"
+	knows_box.tooltip_text = "Marcado: todos os sistemas abertos desde o nível 1.
+Desmarcado: cada sistema chega na hora certa, com uma tarefa curta de um NPC."
+	knows_box.add_theme_font_size_override("font_size", 14)
+	knows_box.button_pressed = default_knows_game()
+	lv.add_child(knows_box)
 	# começos rápidos: botão "Debug" sempre na tela (playtest 2026-11-18); `--dev_presets` já abre o seletor
 	var dbg := _btn("Debug", _toggle_debug, 0, 30)
 	dbg.name = "DebugToggle"

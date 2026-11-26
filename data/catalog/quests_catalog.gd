@@ -8,6 +8,7 @@ const TALK := QuestDef.Type.TALK
 const CRAFT := QuestDef.Type.CRAFT
 const REACH := QuestDef.Type.REACH
 const DEFEND := QuestDef.Type.DEFEND
+const TASK := QuestDef.Type.TASK
 
 static func _mk(d: Dictionary) -> QuestDef:
 	var q := QuestDef.new()
@@ -467,6 +468,86 @@ static func hollow() -> Array:
 		 "dialog_offer": "Leve a notícia à Capitã. E diga que mel não vai faltar na Feira do Trigo este ano.",
 		 "dialog_progress": "Volte pela gorja do norte da mata e procure a Capitã no Quartel de Aldara.",
 		 "dialog_complete": "A Ursa-Mãe? Sozinho? Os mateiros vão contar essa história na fogueira por anos. Tome, você mereceu."},
+	]
+
+## Introdução dos sistemas (GDD design/gdd/introducao-de-sistemas.md §3.1): sistema -> quest curta do NPC que ensina.
+## Aceitar abre o sistema (UnlockSystem.on_quest_accepted); só é oferecida com a introdução ligada e o sistema fechado.
+## XP 0 (não mexe na XP das faixas, scale_xp); ascensão e Suprema já têm missão própria.
+const INTRO := {"basics": "in_basics", "web": "in_web", "shop": "in_shop", "talents": "in_talents", "party": "in_party",
+	"ranks": "in_ranks", "sets": "in_sets", "enhance": "in_enhance", "bags": "in_bags", "evolutions": "in_evolutions", "apex": "in_apex"}
+
+## Presente entregue ao aceitar a quest de introdução (UnlockSystem.on_quest_accepted; não é entrega: fica com o jogador).
+const INTRO_GIFTS := {"in_bags": {"bag_t0": 1}}
+
+static func is_intro(quest_id: String) -> bool:
+	return quest_id.begins_with("in_") and intro_system(quest_id) != ""
+
+## Sistema que a quest de introdução abre ("" = não é de introdução).
+static func intro_system(quest_id: String) -> String:
+	for sys in INTRO:
+		if INTRO[sys] == quest_id:
+			return sys
+	return ""
+
+## As cenas: no máximo 3 falas (oferta, andamento, conclusão). TEXTO PROVISÓRIO (passe do writer).
+static func intro() -> Array:
+	var T := Balance.UNLOCK_LEVELS
+	return [
+		{"id": "in_basics", "title": "Primeiros Passos", "giver_npc": "captain", "type": KILL, "target_id": "slime", "count": 3, "level_req": T["basics"],
+		 "reward_xp": 0, "reward_gold": 10, "reward_items": {"potion_hp_s": 2}, "map_hint": "Campina: lago (portão sul)",
+		 "description": "Derrube 3 Slimes na Campina. Use o dash para sair do golpe e a poção se apertar.",
+		 "dialog_offer": "Antes de tudo, mostre que sabe se mexer. Três slimes no lago do sul: bata, saia do golpe com o dash, beba poção se precisar.",
+		 "dialog_progress": "Dash para sair da frente, botão esquerdo para bater. Três slimes.", "dialog_complete": "Rápido nos pés. É disso que a guarda precisa."},
+		{"id": "in_web", "title": "A Teia de Skills", "giver_npc": "elder", "type": TASK, "target_id": "web_point", "count": 1, "level_req": T["web"],
+		 "reward_xp": 0, "reward_gold": 10, "map_hint": "Janela da teia",
+		 "description": "Abra a teia de skills e gaste 1 ponto num nó verde ao lado do Início.",
+		 "dialog_offer": "Cada nível te dá pontos. Abra a teia e gaste um num nó verde, perto do Início. Sem pressa: o botão Recomendado mostra um caminho.",
+		 "dialog_progress": "Um ponto, num nó verde ao lado do Início.", "dialog_complete": "Assim se cresce: um nó de cada vez."},
+		{"id": "in_shop", "title": "Negócio é Negócio", "giver_npc": "merchant", "type": TASK, "target_id": "sell", "count": 1, "level_req": T["shop"],
+		 "reward_xp": 0, "reward_gold": 15, "map_hint": "Mercador Tobias (Aldara)",
+		 "description": "Venda 1 item da bolsa ao Mercador Tobias.",
+		 "dialog_offer": "Bolsa cheia de tralha? Eu compro. Fale comigo e venda qualquer coisa: é ouro para poção.",
+		 "dialog_progress": "Qualquer item serve. Clique nele na minha loja.", "dialog_complete": "Pronto, freguês. Volte sempre."},
+		{"id": "in_talents", "title": "Talentos de Classe", "giver_npc": "trainer_city_aldara", "type": TASK, "target_id": "talent", "count": 1, "level_req": T["talents"],
+		 "reward_xp": 0, "reward_gold": 15, "map_hint": "Aba Talentos da teia",
+		 "description": "Escolha 1 talento de classe na aba Talentos da teia.",
+		 "dialog_offer": "Nível 5: hora do primeiro talento de classe. Na teia, aba Talentos, escolha um. É grátis e dá para trocar na cidade.",
+		 "dialog_progress": "Aba Talentos da teia. Um por linha.", "dialog_complete": "Boa escolha. A próxima linha abre no nível 10."},
+		{"id": "in_party", "title": "Ninguém Caça Sozinho", "giver_npc": "captain", "type": TASK, "target_id": "party_kill", "count": 5, "level_req": T["party"],
+		 "reward_xp": 0, "reward_gold": 20, "map_hint": "Qualquer caçada",
+		 "description": "Convide um aventureiro para o grupo e derrubem 5 monstros juntos.",
+		 "dialog_offer": "Aventureiro esperto anda em grupo. Convide alguém e cacem cinco monstros juntos: XP e saque se dividem.",
+		 "dialog_progress": "Grupo formado? Cinco monstros juntos.", "dialog_complete": "Viu? Em grupo o chefe cai mais rápido."},
+		{"id": "in_ranks", "title": "Dominar uma Skill", "giver_npc": "trainer_city_aldara", "type": TASK, "target_id": "rank2", "count": 1, "level_req": T["ranks"],
+		 "reward_xp": 0, "reward_gold": 30, "map_hint": "Mestra de Skills (Aldara)",
+		 "description": "Suba 1 skill ao rank 2 com a Mestra de Skills.",
+		 "dialog_offer": "Skill que chega sozinha ainda é crua. Traga ouro e material da caçada e eu subo uma ao rank 2.",
+		 "dialog_progress": "Fale comigo com ouro e os materiais da skill.", "dialog_complete": "Sentiu a diferença? Até o rank 5, quando quiser."},
+		{"id": "in_sets", "title": "Peças que Combinam", "giver_npc": "smith", "type": TASK, "target_id": "set2", "count": 2, "level_req": T["sets"],
+		 "reward_xp": 0, "reward_gold": 40, "map_hint": "Chefes e elites",
+		 "description": "Vista 2 peças do mesmo conjunto lendário. Chefes soltam mais.",
+		 "dialog_offer": "Peça de conjunto lendário vale mais junto: com duas vestidas o conjunto acorda. Chefe derrubado solta baú.",
+		 "dialog_progress": "Duas peças do mesmo conjunto. A janela do personagem mostra os bônus.", "dialog_complete": "Ouviu o metal cantar? É o conjunto."},
+		{"id": "in_enhance", "title": "Mais Um Ponto", "giver_npc": "smith", "type": TASK, "target_id": "enhance", "count": 1, "level_req": T["enhance"],
+		 "reward_xp": 0, "reward_gold": 40, "map_hint": "Brom, o Ferreiro (Aldara)",
+		 "description": "Aprimore 1 peça vestida ao +1 na forja do Brom.",
+		 "dialog_offer": "Agora eu aprimoro o que você veste: +1 até +9, e aqui nada quebra. Traga uma peça.",
+		 "dialog_progress": "Fale comigo e escolha Aprimorar.", "dialog_complete": "No +5 ela começa a brilhar."},
+		{"id": "in_bags", "title": "Bolso Fundo", "giver_npc": "alchemist", "type": TASK, "target_id": "bag", "count": 1, "level_req": T["bags"],
+		 "reward_xp": 0, "reward_gold": 30, "map_hint": "Janela da bolsa",
+		 "description": "Vista a Bolsa Ampliada numa das vagas de bolsa (topo da janela da bolsa).",
+		 "dialog_offer": "Costurei uma bolsa a mais para você. Vista no alto da janela da bolsa: mais espaço para erva e saque.",
+		 "dialog_progress": "Arraste a bolsa para uma vaga no topo da janela.", "dialog_complete": "Agora cabe o dobro de gel. Volte quando tiver."},
+		{"id": "in_evolutions", "title": "Evoluções e Cargas", "giver_npc": "trainer_city_aldara", "type": TASK, "target_id": "evolution", "count": 1, "level_req": T["evolutions"],
+		 "reward_xp": 0, "reward_gold": 60, "map_hint": "Teia de skills",
+		 "description": "Compre 1 evolução (losango) na teia de skills.",
+		 "dialog_offer": "Toda skill pode evoluir, e as fortes guardam cargas. Na teia, os losangos em volta da skill mudam o jeito dela. Compre um.",
+		 "dialog_progress": "Um losango ao lado de uma skill sua.", "dialog_complete": "A mesma skill, outro golpe."},
+		{"id": "in_apex", "title": "Ápice e Híbridos", "giver_npc": "relic", "type": TALK, "target_id": "relic", "count": 1, "level_req": T["apex"],
+		 "reward_xp": 0, "reward_gold": 80, "map_hint": "Iara, a Relicária (Aldara)",
+		 "description": "Ouça a Relicária sobre os conjuntos Ápice e as peças híbridas.",
+		 "dialog_offer": "Do 35 em diante existem os Ápices: cinco peças, uma regra nova. E peças híbridas juntam duas builds. Pergunte quando tiver moedas.",
+		 "dialog_progress": "Fale comigo.", "dialog_complete": "Escolha com calma: moeda lendária não cresce em árvore."},
 	]
 
 static func build() -> Array:
@@ -1007,6 +1088,7 @@ static func build() -> Array:
 	if MapsCatalog.archive_ready():        # Arquivo de Vel'Thar: só com a masmorra na sim (REACH e KILL apontam para ela)
 		L.append_array(archive())
 	L.append_array(dawn_rests())
+	L.append_array(intro())               # introdução dos sistemas (QuestsCatalog.INTRO)
 	L.append_array(act2())
 	L.append_array(act2_steppe())
 	L.append_array(act2_kharzun())

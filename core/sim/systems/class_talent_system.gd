@@ -450,3 +450,23 @@ static func bot_pick(sim: WorldSim, e: SimEntity, batch: bool = false) -> bool:
 			if ProgressionSystem.tree_allocate(sim, e, nid, batch):
 				bought = true
 	return bought
+
+## "Recomendado" dos talentos (GDD introducao-de-sistemas §3.4): por linha liberada e ainda sem escolha, o nó que o bot
+## da build `build_id` ("" = ProgressionSystem.main_build) escolheria (bot_choice). Só lê; linha já escolhida fica como está.
+static func recommend_picks(sim: WorldSim, e: SimEntity, build_id: String = "") -> Array:
+	var out: Array = []
+	if e.class_def == null:
+		return out
+	var bid := build_id if build_id != "" else ProgressionSystem.main_build(sim, e)
+	var build := e.class_def.build_by_id(bid)
+	if build.is_empty():
+		build = {"id": bid, "role": e.class_def.role}
+	var mine: Array = build.get("skills", e.class_def.skill_ids)
+	for row in ClassTalentsCatalog.rows_of(e.class_def.id):
+		if int(row[0]) > e.level:
+			continue
+		var o: Dictionary = bot_choice(row[1], build, mine, int(row[0]))
+		var nid := "%s_c_%s" % [e.class_def.id, o["id"]]
+		if not e.tree.has(nid) and ProgressionSystem.pick_sibling(sim, e, nid) == "":
+			out.append(nid)
+	return out

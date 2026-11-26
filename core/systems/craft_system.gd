@@ -34,7 +34,26 @@ static func can_craft(e: SimEntity, r: RecipeDef) -> bool:
 			return false
 	return true
 
-static func craft(e: SimEntity, r: RecipeDef) -> bool:
+## Quantas vezes dá para fazer agora (puro): min(tem/precisa de cada material, ouro/custo); 0 se não pode, ou se o
+## resultado é pilha nova numa bolsa cheia e nenhum material acaba (o lote empilha: cabe 1, cabem todos).
+static func max_craftable(e: SimEntity, r: RecipeDef) -> int:
+	if not can_craft(e, r):
+		return 0
+	var n := 1 << 30
+	for item_id in r.ingredients:
+		n = mini(n, int(e.inventory.get(item_id, 0)) / maxi(1, int(r.ingredients[item_id])))
+	if r.gold_cost > 0:
+		n = mini(n, e.gold / r.gold_cost)
+	if e.bag_full_for(r.result_item):
+		var frees := false
+		for item_id in r.ingredients:
+			frees = frees or int(e.inventory.get(item_id, 0)) == int(r.ingredients[item_id])
+		if not frees:
+			return 0
+	return n
+
+## notify = false: sem o aviso "Criou ..." (o lote da forja avisa uma vez só).
+static func craft(e: SimEntity, r: RecipeDef, notify: bool = true) -> bool:
 	if not can_craft(e, r):
 		return false
 	for item_id in r.ingredients:
@@ -44,8 +63,9 @@ static func craft(e: SimEntity, r: RecipeDef) -> bool:
 	QuestSystem.on_craft(e, r.result_item, r.result_count)
 	QuestSystem.on_item_changed(e, r.result_item)
 	Events.post(&"crafted", e.id, r.result_item, r.result_count)
-	var it: ItemDef = GameData.items.get(r.result_item)
-	Events.post(&"notification", "Criou %s x%d" % [it.name if it else r.result_item, r.result_count])
+	if notify:
+		var it: ItemDef = GameData.items.get(r.result_item)
+		Events.post(&"notification", "Criou %s x%d" % [it.name if it else r.result_item, r.result_count])
 	return true
 
 # --- loja ---
@@ -69,4 +89,5 @@ static func sell(e: SimEntity, item_id: String, count: int = 1) -> bool:
 	e.remove_item(item_id, count)
 	e.gold += int(it.price * 0.5) * count
 	QuestSystem.on_item_changed(e, item_id)
+	UnlockSystem.on_task(e, "sell")                 # introdução da loja
 	return true

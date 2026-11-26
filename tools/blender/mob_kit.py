@@ -3008,6 +3008,10 @@ def build_all(out_dir, only=None):
     import archive_mobs
     importlib.reload(archive_mobs)
     builders.update(archive_mobs.BUILDERS)
+    # Chefes de Mundo (GDD momentos-do-mundo §3.1): Javali Ancestral, de peças rígidas (world_bosses.py)
+    import world_bosses
+    importlib.reload(world_bosses)
+    builders.update(world_bosses.BUILDERS)
     for name, fn in builders.items():
         if only and name not in only:
             continue

@@ -38,6 +38,8 @@ static func can_accept(e: SimEntity, q: QuestDef) -> bool:
 		return false
 	if e.level < q.level_req:
 		return false
+	if QuestsCatalog.is_intro(q.id) and not UnlockSystem.offers(e, q.id):     # introdução: só enquanto o sistema não abriu
+		return false
 	var cls := QuestsCatalog.class_of(q.id)      # ascensão: só a classe do mestre
 	if cls != "" and (e.class_def == null or cls != e.class_def.id):
 		return false
@@ -84,6 +86,7 @@ static func accept(e: SimEntity, q: QuestDef) -> void:
 	for iid in q.give_items:                 # entrega: o pacote vai para a bolsa
 		e.add_item(iid, int(q.give_items[iid]))
 	Events.post(&"quest_accepted", e.id, q.id)
+	UnlockSystem.on_quest_accepted(e, q)         # introdução: abre o sistema da tarefa (e o básico)
 	# COLLECT: conta o que já tem; TALK ao próprio NPC completa na hora
 	if q.type == QuestDef.Type.COLLECT:
 		on_item_changed(e, q.target_id)
@@ -99,6 +102,8 @@ static func abandon(e: SimEntity, q: QuestDef) -> void:
 static func progress(e: SimEntity, q: QuestDef) -> int:
 	if q.type == QuestDef.Type.COLLECT:
 		return mini(int(e.inventory.get(q.target_id, 0)), q.count)
+	if q.type == QuestDef.Type.TASK:              # introdução: o estado do personagem também conta (UnlockSystem)
+		return mini(maxi(int(e.quests_active.get(q.id, 0)), UnlockSystem.task_state(e, q.target_id)), q.count)
 	return int(e.quests_active.get(q.id, 0))
 
 static func is_complete(e: SimEntity, q: QuestDef) -> bool:
@@ -111,6 +116,8 @@ static func on_kill(e: SimEntity, monster_id: String) -> void:
 			var cur := mini(int(e.quests_active[qid]) + 1, q.count)
 			e.quests_active[qid] = cur
 			Events.post(&"quest_progress", e.id, qid, cur, q.count)
+	if e.party_id >= 0:
+		UnlockSystem.on_task(e, "party_kill")    # introdução do grupo: abates com o grupo
 
 ## DEFEND: uma leva repelida no mapa `map_id` com o jogador na defesa (SiegeSystem.on_wave_end).
 static func on_defend(e: SimEntity, map_id: String) -> void:
@@ -186,7 +193,7 @@ static func npc_marker(e: SimEntity, npc_id: String) -> String:
 		return REPEAT               # só repetíveis: marcador próprio (azul), diferente do "!" de história
 	for qid in GameData.quests:
 		var q: QuestDef = GameData.quests[qid]
-		if q.giver_npc == npc_id and not q.repeatable and not e.quests_active.has(qid) and not (qid in e.quests_completed) and not shut_out(e, q):
+		if q.giver_npc == npc_id and not q.repeatable and not e.quests_active.has(qid) and not (qid in e.quests_completed) and not shut_out(e, q) and not QuestsCatalog.is_intro(qid):
 			return LOCKED
 	return ""
 
@@ -209,6 +216,8 @@ static func objective(e: SimEntity, q: QuestDef) -> Dictionary:
 			return spot if not spot.is_empty() else _npc_spot(e, q.turnin())   # entrega: o pacote já está na bolsa
 		QuestDef.Type.TALK:
 			return _npc_spot(e, q.target_id)
+		QuestDef.Type.TASK:                      # introdução: o NPC onde a tarefa se faz (loja, forja...) ou quem deu
+			return _npc_spot(e, str(UnlockSystem.TASK_NPC.get(q.target_id, q.giver_npc)))
 		QuestDef.Type.DEFEND:                    # o povoado sitiado: o alvo da próxima leva (ou o centro)
 			var dm: MapDef = GameData.maps.get(q.target_id)
 			if dm == null:

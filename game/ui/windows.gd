@@ -72,6 +72,8 @@ func toggle(name: String) -> void:
 		close(name)
 		Sfx.ui("ui_close")
 	else:
+		if Sim.player and not UnlockSystem.window_open(Sim.player, name):
+			return                 # introdução: sistema ainda não liberado (a tecla não abre)
 		open_name = name
 		_picks_jump = true
 		_rebuild(name)
@@ -199,7 +201,8 @@ const SLOT_PX := 56
 
 func _inventory(body: VBoxContainer) -> void:
 	var p: SimEntity = Sim.player
-	body.add_child(_bag_bar(p))
+	if UnlockSystem.is_unlocked(p, "bags"):       # introdução: vagas de bolsa só depois da Alquimista (§3.1)
+		body.add_child(_bag_bar(p))
 	var grid := GridContainer.new()
 	grid.columns = BAG_COLS
 	grid.add_theme_constant_override("h_separation", 6)
@@ -892,7 +895,12 @@ func _skills(body: VBoxContainer) -> void:
 	gap.custom_minimum_size.x = 18
 	top.add_child(gap)
 	var open_picks := _picks_open(p)
-	var tabs: Array = [["tree", "Teia"], ["picks", "Talentos" + (" (%d)" % open_picks if open_picks > 0 else "")]]
+	var talents_on := UnlockSystem.is_unlocked(p, "talents")     # introdução: a aba Talentos aparece no 5 (§3.2)
+	if _skills_tab == "picks" and not talents_on:
+		_skills_tab = "tree"
+	var tabs: Array = [["tree", "Teia"]]
+	if talents_on:
+		tabs.append(["picks", "Talentos" + (" (%d)" % open_picks if open_picks > 0 else "")])
 	if has_asc:                       # classe com conteúdo de ascensão: aba própria (pontos e nós separados da teia comum)
 		var asc_left: int = Sim.asc_points(p)
 		tabs.append(["asc", "Ascensão" + (" (%d)" % asc_left if asc_left > 0 else "")])
@@ -905,10 +913,14 @@ func _skills(body: VBoxContainer) -> void:
 		elif t[0] == "asc" and Sim.asc_points(p) > 0 and _skills_tab != "asc":
 			tb.add_theme_color_override("font_color", C_CAN)
 		top.add_child(tb)
+	if _skills_tab in ["tree", "picks"]:
+		_rec_bar(p, top)
 	var fill := Control.new()
 	fill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(fill)
-	if _skills_tab == "tree":
+	if not rec_plan.is_empty():
+		top.add_child(UiKit.label("Recomendado (%s): %d compra(s) em azul. Confirme ou cancele." % [_rec_build_name(p), rec_plan.size()], 12, C_REC))
+	elif _skills_tab == "tree":
 		top.add_child(UiKit.label("■ skill aprimorada  ◆ evolução  • ágil  ◉ notável  · atributo    dourado = comprado  verde = disponível", 12, UiKit.MUTED))
 	elif _skills_tab == "asc":
 		var why := "" if Sim.has_ascension(p) else "  · liberada no nível %d com a missão de ascensão" % Balance.ASC_LEVEL
@@ -924,8 +936,53 @@ func _skills(body: VBoxContainer) -> void:
 
 func _set_skills_tab(t: String) -> void:
 	_skills_tab = t
+	rec_plan = []
 	_picks_jump = true
 	_rebuild("skills")
+
+## "Recomendado" (GDD introducao-de-sistemas §3.4/§9.3): a prévia acende em azul o que o bot da build compraria
+## (Sim.recommend_web / recommend_picks); Confirmar compra pela sim, Cancelar apaga. Só gasta pontos livres.
+const C_REC := Color(0.45, 0.75, 1.0)
+var rec_plan: Array = []          # nós propostos (prévia aberta); [] = sem prévia
+var rec_tab := ""                 # aba em que a prévia foi feita
+
+func _rec_bar(p: SimEntity, top: HBoxContainer) -> void:
+	if rec_plan.is_empty() or rec_tab != _skills_tab:
+		rec_plan = []
+		var b := UiKit.button("Recomendado", _rec_preview, 120)
+		b.tooltip_text = "Mostra (em azul) o que um aventureiro da sua build escolheria.\nNada é comprado até você confirmar."
+		top.add_child(b)
+		return
+	var ok := UiKit.button("Confirmar (%d)" % rec_plan.size(), _rec_confirm, 120)
+	ok.add_theme_color_override("font_color", C_REC)
+	top.add_child(ok)
+	top.add_child(UiKit.button("Cancelar", _rec_cancel, 90))
+
+## Abre a prévia na aba atual (revisão e testes também chamam).
+func _rec_preview() -> void:
+	var p: SimEntity = Sim.player
+	if p == null:
+		return
+	rec_tab = _skills_tab
+	rec_plan = Sim.recommend_picks(p) if _skills_tab == "picks" else Sim.recommend_web(p)
+	if rec_plan.is_empty():
+		Events.notification.emit("Nada a recomendar agora: sem pontos livres ou sem escolha aberta.")
+	_rebuild("skills")
+
+func _rec_confirm() -> void:
+	var p: SimEntity = Sim.player
+	if p and not rec_plan.is_empty():
+		Sim.apply_plan(p, rec_plan)
+	rec_plan = []
+	_rebuild("skills")
+
+func _rec_cancel() -> void:
+	rec_plan = []
+	_rebuild("skills")
+
+func _rec_build_name(p: SimEntity) -> String:
+	var bid := Sim.main_build(p)
+	return str(p.class_def.build_by_id(bid).get("name", bid)) if p.class_def else bid
 
 ## Linhas de talento liberadas pelo nível e ainda sem escolha (o número na aba).
 func _picks_open(p: SimEntity) -> int:
@@ -1009,6 +1066,9 @@ func _pick_card(p: SimEntity, n: Dictionary) -> Control:
 	b.custom_minimum_size = Vector2(250, 104)
 	var border := C_OWNED if owned else (C_CAN if can else C_LOCK)
 	var bg := Color(0.16, 0.13, 0.07) if owned else (Color(0.07, 0.12, 0.08) if can else Color(0.07, 0.065, 0.09))
+	if rec_plan.has(n["id"]):                # prévia do Recomendado
+		border = C_REC
+		bg = Color(0.06, 0.1, 0.16)
 	for state in ["normal", "hover", "pressed", "disabled"]:
 		b.add_theme_stylebox_override(state, UiKit.panel_style(bg.lightened(0.08) if state == "hover" else bg, border.lightened(0.2) if state == "hover" else border, 8, 2 if owned or can else 1))
 	var tv := VBoxContainer.new()
@@ -1033,7 +1093,7 @@ func _pick_card(p: SimEntity, n: Dictionary) -> Control:
 	txt.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tv.add_child(txt)
-	var small := UiKit.label("escolhido" if owned else ("trocar para este" if why == "" and Sim.pick_sibling(p, n["id"]) != "" else ("disponível" if can else why)), 10,
+	var small := UiKit.label("recomendado" if rec_plan.has(n["id"]) else ("escolhido" if owned else ("trocar para este" if why == "" and Sim.pick_sibling(p, n["id"]) != "" else ("disponível" if can else why))), 10,
 		C_OWNED if owned else (C_CAN if why == "" else UiKit.MUTED), false)
 	small.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tv.add_child(small)
@@ -1249,6 +1309,14 @@ func _tree_node(p: SimEntity, n: Dictionary, at: Vector2) -> Control:
 	mark.add_theme_stylebox_override("panel", UiKit.panel_style(Color(0.3, 0.9, 1.0, 0.15), Color(0.4, 0.95, 1.0), px, 3))
 	mark.visible = false
 	holder.add_child(mark)
+	if rec_plan.has(n["id"]):                # prévia do Recomendado: anel azul
+		var rec := Panel.new()
+		rec.position = Vector2(-6, -6)
+		rec.size = Vector2(px + 12, px + 12)
+		rec.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rec.add_theme_stylebox_override("panel", UiKit.panel_style(Color(C_REC, 0.35), C_REC, px, 3))
+		rec.name = "Rec"
+		holder.add_child(rec)
 	_web_marks.append([mark, ("%s %s %s" % [n["name"], n["desc"], TreeCatalog.stat_short(st)]).to_lower()])
 	if can and not owned and kind != "stat":
 		var glow := Panel.new()          # brilho verde atrás de quem dá pra comprar agora

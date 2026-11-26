@@ -600,6 +600,8 @@ func tick(dt: float) -> void:
 			_prof("rest", pt)
 			_prof("map_" + map_id, map_t)
 	ticking_map = ""
+	if player != null and not player.auto_potion.is_empty():
+		ItemSystem.auto_potion(self, player)          # auto-poção (só o jogador; bots têm a regra do BotBrain)
 	# descarta inputs de 1 tick do jogador
 	player_cmd = player_cmd.duplicate_cmd()
 	player_cmd.attack = false; player_cmd.skill_slot = -1; player_cmd.potion_slot = -1
@@ -2075,6 +2077,11 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 	target.hit_flash = Balance.HIT_FLASH_TIME
 	target.combat_timer = Balance.AGGRO_LOSE_TIME
 	target.last_damage_from = attacker.id
+	if attacker != target:
+		target.last_fight_t = time                 # auto-poção: "em luta" (dano levado ou causado)
+		attacker.last_fight_t = time
+		if attacker.kind == SimEntity.Kind.SUMMON and entities.has(attacker.owner_id):
+			(entities[attacker.owner_id] as SimEntity).last_fight_t = time
 	if attacker.is_character() and target.kind == SimEntity.Kind.MONSTER and not kind.begins_with("dot"):
 		attacker.last_target_id = target.id      # o elemental (modo atacar) segue este alvo
 	target.threat[attacker.id] = float(target.threat.get(attacker.id, 0.0)) + amount * (1.0 + (attacker.stats.threat_pct if attacker.form != "ent" else DruidAscension.threat_pct(self, attacker)) / 100.0)     # aura do tanque: mais ameaça (Ent só se for o tanque)
@@ -2808,6 +2815,10 @@ func pick_legendary(killer: SimEntity, mob_level: int) -> String:
 	return ItemSystem.pick_legendary(self, killer, mob_level)
 func use_potion(e: SimEntity, slot: int) -> bool:
 	return ItemSystem.use_potion(self, e, slot)
+func set_auto_potion(e: SimEntity, changes: Dictionary) -> Dictionary:
+	return ItemSystem.set_auto_potion(e, changes)
+func auto_potion_config(e: SimEntity) -> Dictionary:
+	return ItemSystem.auto_potion_config(e)
 func equip_error(e: SimEntity, item: ItemDef, to_offhand: bool = false) -> String:
 	return ItemSystem.equip_error(self, e, item, to_offhand)
 func equip(e: SimEntity, item_id: String, to_offhand: bool = false, want_slot: int = -1) -> bool:
@@ -2945,3 +2956,16 @@ func has_ultimate(e: SimEntity) -> bool:
 ## Por que o R está travado ("" = liberado).
 func ultimate_lock(e: SimEntity) -> String:
 	return UltimateSystem.lock_reason(self, e)
+## "Recomendado" (introdução dos sistemas): nós da teia / talentos que o bot da build compraria; só lê.
+func recommend_web(e: SimEntity, build_id: String = "") -> Array:
+	return ProgressionSystem.recommend_web(self, e, build_id)
+func recommend_picks(e: SimEntity, build_id: String = "") -> Array:
+	return ClassTalentSystem.recommend_picks(self, e, build_id)
+## Confirmar o "Recomendado": compra os nós na ordem; para no primeiro que a sim recusa. Devolve quantos comprou.
+func apply_plan(e: SimEntity, plan: Array) -> int:
+	var n := 0
+	for nid in plan:
+		if not ProgressionSystem.tree_allocate(self, e, str(nid)):
+			break
+		n += 1
+	return n

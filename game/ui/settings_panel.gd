@@ -13,9 +13,11 @@ var gfx_button: Button
 var tips_button: Button
 var sliders: Dictionary = {}          # barramento -> HSlider
 
-static func create(tips_: Tips = null) -> SettingsPanel:
+## `player_` = personagem em jogo (Esc do HUD): só com ele aparece a aba Auto-poção (no Título não há personagem).
+static func create(tips_: Tips = null, player_: SimEntity = null) -> SettingsPanel:
 	var p := SettingsPanel.new()
 	p.tips = tips_
+	p.player = player_
 	return p
 
 func _init() -> void:
@@ -25,8 +27,12 @@ func _init() -> void:
 var general_box: VBoxContainer          # aba Geral: Gráficos, volumes, Dicas
 var access_box: VBoxContainer           # aba Acessibilidade (AccessSettings)
 var controls_box: VBoxContainer         # aba Controles (KeyBindings)
-const TAB_NAMES := ["Geral", "Acessibilidade", "Controles"]
-const TAB_IDS := ["general", "access", "controls"]        # --settings_tab=<id ou índice>
+const TAB_NAMES := ["Geral", "Acessibilidade", "Controles", "Auto-poção"]
+const TAB_IDS := ["general", "access", "controls", "auto"]        # --settings_tab=<id ou índice>
+const TAB_AUTO := 3
+var player: SimEntity = null            # personagem em jogo (aba Auto-poção); null = Título
+var auto_box: VBoxContainer             # aba Auto-poção (GDD auto-pocao; só com personagem)
+var auto_rows: Dictionary = {}          # linha ("hp"/"mp"/"elx") -> {on: Button, slot: OptionButton, pct: Label}
 const CONTROLS_W := 330
 const KEY_BUTTON_W := 130
 var key_buttons: Dictionary = {}        # ação -> Button com a tecla de agora
@@ -45,8 +51,10 @@ func _ready() -> void:
 	add_child(tabs)
 	var group := ButtonGroup.new()
 	for i in TAB_NAMES.size():
+		if i == TAB_AUTO and player == null:
+			continue
 		var tb := UiKit.button(TAB_NAMES[i], show_tab.bind(i), 0)
-		tb.name = ["TabGeneral", "TabAccess", "TabControls"][i]
+		tb.name = ["TabGeneral", "TabAccess", "TabControls", "TabAuto"][i]
 		tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		tb.toggle_mode = true
 		tb.button_group = group
@@ -77,6 +85,8 @@ FSR 2: renderiza menor e reconstrói — mais FPS em PC fraco, contorno pode tre
 	_tips_text()
 	_build_access()
 	_build_controls()
+	if player != null:
+		_build_auto()
 	show_tab(0)
 
 ## Mostra a aba `i` (0 = Geral, 1 = Acessibilidade, 2 = Controles). Trocar de aba cancela a espera de tecla.
@@ -84,6 +94,10 @@ func show_tab(i: int) -> void:
 	general_box.visible = i == 0
 	access_box.visible = i == 1
 	controls_box.visible = i == 2
+	if auto_box:
+		auto_box.visible = i == TAB_AUTO
+		if i == TAB_AUTO:
+			_auto_text()
 	if i != 2:
 		cancel_capture()
 	for k in tab_buttons.size():
@@ -205,6 +219,105 @@ func _restore_keys() -> void:
 	KeyBindings.save()
 	key_notice.text = "Teclas padrão restauradas"
 	_keys_text()
+
+# ------------------------------------------------------------------ auto-poção
+## Três linhas (Vida / Mana / Elixir): liga/desliga, vaga F1-F3 (tecla de agora) e % com (- +). Muda pela sim
+## (`Sim.set_auto_potion`), nada aqui guarda estado; vai no save do personagem.
+const AUTO_LINES := [["hp", "Vida"], ["mp", "Mana"], ["elx", "Elixir"]]
+
+func _build_auto() -> void:
+	auto_box = VBoxContainer.new()
+	auto_box.name = "Auto"
+	auto_box.add_theme_constant_override("separation", 6)
+	add_child(auto_box)
+	var head := UiKit.label("Bebe sozinho a poção da vaga escolhida.", 12, UiKit.MUTED)
+	head.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	head.custom_minimum_size.x = CONTROLS_W
+	auto_box.add_child(head)
+	for ln in AUTO_LINES:
+		var id: String = ln[0]
+		var row := HBoxContainer.new()
+		row.name = "Auto_" + id
+		row.add_theme_constant_override("separation", 4)
+		auto_box.add_child(row)
+		var on := UiKit.button("", _auto_toggle.bind(id), 82)
+		on.name = "On"
+		on.focus_mode = Control.FOCUS_ALL
+		on.add_theme_font_size_override("font_size", 12)
+		row.add_child(on)
+		var sl := OptionButton.new()
+		sl.name = "Slot"
+		sl.custom_minimum_size.x = 58
+		sl.add_theme_font_size_override("font_size", 12)
+		for k in 3:
+			sl.add_item(KeyBindings.short("potion_%d" % (k + 1)), k)
+		sl.tooltip_text = "Vaga da barra de onde sai a poção."
+		sl.item_selected.connect(_auto_slot.bind(id))
+		row.add_child(sl)
+		var r := {"on": on, "slot": sl}
+		if id == "elx":
+			var l := UiKit.label("renova quando acaba, só em luta", 11, UiKit.MUTED)
+			l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			l.custom_minimum_size.x = 150
+			row.add_child(l)
+		else:
+			var below := UiKit.label("abaixo de", 12, UiKit.MUTED)
+			row.add_child(below)
+			var minus := UiKit.button("-", _auto_step.bind(id, -1), 26)
+			minus.name = "Minus"
+			row.add_child(minus)
+			var pct := UiKit.label("", 13, UiKit.GOLD)
+			pct.name = "Pct"
+			pct.custom_minimum_size.x = 38
+			pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			row.add_child(pct)
+			var plus := UiKit.button("+", _auto_step.bind(id, 1), 26)
+			plus.name = "Plus"
+			row.add_child(plus)
+			r["pct"] = pct
+		auto_rows[id] = r
+	var note := UiKit.label("Usa o estoque e a recarga normais da poção.", 11, UiKit.MUTED)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.custom_minimum_size.x = CONTROLS_W
+	auto_box.add_child(note)
+	_auto_text()
+
+## Redesenha as linhas com a configuração de agora (e as teclas de agora nas vagas).
+func _auto_text() -> void:
+	if player == null or auto_box == null:
+		return
+	Sim.sync()
+	var cfg := ItemSystem.auto_potion_config(player)
+	for ln in AUTO_LINES:
+		var id: String = ln[0]
+		var r: Dictionary = auto_rows[id]
+		var on: bool = cfg[id + "_on"]
+		(r["on"] as Button).text = ("[x] " if on else "[  ] ") + str(ln[1])
+		(r["on"] as Button).tooltip_text = "Ligar/desligar a linha %s" % str(ln[1])
+		var sl: OptionButton = r["slot"]
+		for k in 3:
+			sl.set_item_text(k, KeyBindings.short("potion_%d" % (k + 1)))
+		sl.select(int(cfg[id + "_slot"]))
+		if r.has("pct"):
+			(r["pct"] as Label).text = "%d%%" % int(cfg[id + "_pct"])
+
+func _auto_toggle(id: String) -> void:
+	Sim.sync()
+	var cfg := ItemSystem.auto_potion_config(player)
+	Sim.set_auto_potion(player, {id + "_on": not bool(cfg[id + "_on"])})
+	_auto_text()
+
+func _auto_slot(index: int, id: String) -> void:
+	Sim.sync()
+	Sim.set_auto_potion(player, {id + "_slot": index})
+	_auto_text()
+
+func _auto_step(id: String, dir: int) -> void:
+	Sim.sync()
+	var cfg := ItemSystem.auto_potion_config(player)
+	Sim.set_auto_potion(player, {id + "_pct": int(cfg[id + "_pct"]) + dir * Balance.AUTO_POTION_PCT_STEP})
+	_auto_text()
 
 # ------------------------------------------------------------------ acessibilidade
 func _build_access() -> void:

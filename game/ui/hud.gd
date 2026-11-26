@@ -55,6 +55,7 @@ var npc_ui
 var death_panel: Control = null
 var act_end_panel: Control = null
 var tips: Tips = null
+var unlock_notice: UnlockNotice
 var _chat_focus := false
 
 # layout (em px da resolução base 1280x720; a janela 1920x1080 escala 1.5x)
@@ -100,6 +101,9 @@ func _ready() -> void:
 	tips = Tips.new()                       # dicas contextuais do começo (uma vez cada; Esc liga/desliga)
 	tips.hud = self
 	root.add_child(tips)
+	unlock_notice = UnlockNotice.new()       # introdução dos sistemas: "<NPC> quer falar com você"
+	unlock_notice.hud = self
+	root.add_child(unlock_notice)
 	windows_script = load("res://game/ui/windows.gd").new()
 	windows_script.hud = self
 	root.add_child(windows_script)
@@ -964,7 +968,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _chat_focus:
 		return
 	if event.is_action_pressed("ui_map") and not event.is_echo():
-		toggle_world_map()
+		if Sim.player == null or UnlockSystem.window_open(Sim.player, "@map"):     # introdução: mapa abre com o básico
+			toggle_world_map()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("ui_inventory"): windows_script.toggle("inventory")
@@ -1453,7 +1458,7 @@ func open_game_menu() -> void:
 		var btn := UiKit.button(b[0], b[1], 240)
 		btn.add_theme_font_size_override("font_size", 15)
 		v.add_child(btn)
-	v.add_child(SettingsPanel.create(tips))     # Gráficos, volumes, Dicas (o mesmo painel da tela de título)
+	v.add_child(SettingsPanel.create(tips, Sim.player))     # Gráficos, volumes, Dicas (o mesmo painel da tela de título) + Auto-poção
 	var hint := UiKit.label("O jogo também salva sozinho a cada minuto e ao fechar a janela.", 10, UiKit.MUTED)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(hint)

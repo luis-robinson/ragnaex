@@ -1797,6 +1797,18 @@ skills, dash/guarda ao levar dano, poção com vida baixa, colheita perto, quest
 voltar à cidade longe de casa, grupo no convite, câmera/mapa, morte). Some em 9 s ou no clique; vistas em `user://settings.cfg` (todos os personagens),
 Esc → "Dicas" liga/desliga; partida automática não grava. Revisar: `-- --autostart=<c> --tip_shot=<png> [--tip=<id>]`.
 
+## Introdução dos sistemas — `UnlockSystem` (core/sim/systems/unlock_system.gd; GDD `design/gdd/introducao-de-sistemas.md`, 2026-11-26)
+Cada sistema chega numa hora marcada (`Balance.UNLOCK_LEVELS`: teia 2, loja 4, talentos 5, grupo 6, ranks 8, conjuntos 10, aprimoramento 12,
+bolsas 15, evoluções 20, Ápice 30). No nível, o NPC dono ganha "!" e o HUD mostra "<NPC> quer falar com você" (`UnlockNotice`); aceitar a quest
+curta `in_<sistema>` (`QuestsCatalog.INTRO`, tipo `TASK` = progresso pelo estado do personagem, XP 0) abre o sistema; qualquer quest abre o básico
+(quests L e mapa M). Pulou o NPC: abre sozinho `UNLOCK_GRACE_LEVELS` (2) níveis depois. O que não abriu **some** (atalhos do HUD, aba Talentos,
+vagas de bolsa); no nível 1 o HUD mostra só bolsa, personagem e menu. Caixa "Já conheço o jogo" na Criação (por personagem; marcada quando já
+existe outro) abre tudo. Save: `knows_game` + `unlocked`; save antigo = tudo até o nível dele aberto. Começo rápido abre até o nível do preset;
+bots, testes e `--autostart` têm tudo aberto (`--intro` liga a introdução na partida de dev). Botão **Recomendado** na teia e nos talentos:
+prévia em azul do que o bot da build compraria (`Sim.recommend_web` = `bot_spend` numa cópia de sombra, sem os talentos; `Sim.recommend_picks`
+= `bot_choice` por linha aberta) e Confirmar compra (`Sim.apply_plan`); só pontos livres, nunca desfaz escolha. Checks `--only=unlock`;
+revisar `-- --autostart=<c> --intro --screenshot=<png>` e `--bag_shot=<png> --wins=skills --level=10 --rec_preview`.
+
 ## Tela inicial e fluxo de início (2026-11-14; spec e implementação em `design/ux/start-flow.md`)
 Cena principal `game/menu/start.tscn`. Fluxo: **Título** (Jogar / Configurações / Sair, logo, música de Aldara) → **Personagens** (5 espaços, card com retrato,
 Jogar/Excluir; sem personagem cai direto na Criação) → **Criação** (classe com a skill-assinatura em ação no pedestal, depois visual em 3 abas e nome) → **Carregamento**
