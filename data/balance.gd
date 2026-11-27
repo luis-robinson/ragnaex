@@ -2426,7 +2426,8 @@ const CARD_CHANCE_BOSS := 1.0 / 12.0       # núcleo de chefe
 const CARD_CHANCE_ECHO := 1.0 / 24.0       # Eco de chefe: a carta do chefe original
 const CARD_ELITE_MULT := 10.0              # Rei (elite_of) da base
 const CARD_CORE_MAX := 2                   # núcleos encaixados ao mesmo tempo (D8)
-const CARD_TIER_LEVELS := [10, 20]         # nível do monstro <= 10 = T1, <= 20 = T2, acima = T3
+const CARD_TIER_LEVELS := [10, 20, 30, 37] # nível do monstro <= 10 = T1, <= 20 = T2, <= 30 = T3, <= 37 = T4 (Ato II), acima = T5
+const CARD_ELITE_ROLE_MULT := 10.0         # núcleo de monstro elite (MonsterDef.stat_role "elite", Ato II; usuário 2026-11-27: x10, medir em grupo antes de subir)
 const CARD_FAMILY_DEF_CAP := 25.0          # teto do -% de dano recebido de uma família
 const CARD_POISON_ATK_PCT := 15.0          # proc_poison: dps = % do maior entre ATK/MATK
 const CARD_POISON_S := 4.0
@@ -2437,24 +2438,26 @@ const CARD_PRICE_COMMON := 30              # preço da carta (o mercador paga a 
 const CARD_PRICE_CORE := 120
 const CARD_LOOT_TIME := 120.0              # s que o baú da carta fica no chão
 const CARD_LOCK_TIME := 110.0              # s presa ao dono (regra do lendário)
-## Efeito comum -> [T1, T2, T3]
+## Efeito comum -> [T1, T2, T3, T4, T5] (T4/T5 = Ato II, cartas-ato2.md: T3 + k×passo, k = 1 ou 0,5 nos efeitos com teto/controle;
+## ranged_def/regen_cut T1-T3 só completam a tabela)
 const CARD_COMMON := {
-	"family_dmg": [6.0, 8.0, 10.0], "family_def": [5.0, 7.0, 9.0], "proc_poison": [6.0, 8.0, 10.0], "proc_slow": [8.0, 10.0, 12.0],
-	"crit": [1.0, 1.5, 2.0], "thorns": [4.0, 6.0, 8.0], "block": [2.0, 3.0, 4.0], "cc_resist_pct": [8.0, 10.0, 12.0],
-	"mp_regen_combat": [0.2, 0.3, 0.4], "xp_pct": [3.0, 4.0, 5.0], "hp_pct": [2.0, 3.0, 4.0], "def_pct": [3.0, 4.0, 5.0],
-	"heal_taken_pct": [4.0, 5.0, 6.0], "speed_pct": [3.0, 4.0, 5.0], "dash_pct": [8.0, 10.0, 12.0], "evasion": [1.0, 1.5, 2.0],
-	"gold_pct": [6.0, 8.0, 10.0], "mp_on_kill": [2.0, 3.0, 4.0], "lifesteal": [0.5, 0.75, 1.0]}
-## Efeito de núcleo -> [T1, T2, T3]
+	"family_dmg": [6.0, 8.0, 10.0, 12.0, 14.0], "family_def": [5.0, 7.0, 9.0, 10.0, 11.0], "ranged_def": [5.0, 7.0, 9.0, 10.0, 11.0], "proc_poison": [6.0, 8.0, 10.0, 12.0, 14.0],
+	"proc_slow": [8.0, 10.0, 12.0, 14.0, 16.0], "regen_cut": [1.0, 1.5, 2.0, 2.5, 3.0], "crit": [1.0, 1.5, 2.0, 2.5, 3.0], "thorns": [4.0, 6.0, 8.0, 10.0, 12.0],
+	"block": [2.0, 3.0, 4.0, 4.5, 5.0], "cc_resist_pct": [8.0, 10.0, 12.0, 13.0, 14.0], "mp_regen_combat": [0.2, 0.3, 0.4, 0.5, 0.6], "xp_pct": [3.0, 4.0, 5.0, 6.0, 7.0],
+	"hp_pct": [2.0, 3.0, 4.0, 5.0, 6.0], "def_pct": [3.0, 4.0, 5.0, 6.0, 7.0], "heal_taken_pct": [4.0, 5.0, 6.0, 7.0, 8.0], "speed_pct": [3.0, 4.0, 5.0, 5.5, 6.0],
+	"dash_pct": [8.0, 10.0, 12.0, 14.0, 16.0], "evasion": [1.0, 1.5, 2.0, 2.25, 2.5], "gold_pct": [6.0, 8.0, 10.0, 12.0, 14.0], "mp_on_kill": [2.0, 3.0, 4.0, 5.0, 6.0],
+	"lifesteal": [0.5, 0.75, 1.0, 1.25, 1.5]}
+## Efeito de núcleo -> [T1, T2, T3, T4, T5] (mesma regra; storm_pct e leader_dmg entram no Ato II)
 const CARD_CORE := {
-	"dr_pct": [6.0, 8.0, 10.0], "kill_heal": [2.0, 3.0, 4.0], "proc_stun": [3.0, 4.0, 5.0], "hp_pct": [5.0, 7.0, 9.0],
-	"def_pct": [8.0, 10.0, 12.0], "atk_pct": [4.0, 5.0, 6.0], "matk_pct": [4.0, 5.0, 6.0], "lifesteal": [2.0, 3.0, 4.0],
-	"cdr": [4.0, 6.0, 8.0], "crit": [3.0, 4.0, 5.0], "crit_dmg_pct": [10.0, 15.0, 20.0], "aspd_pct": [5.0, 7.0, 9.0],
-	"dot_pct": [8.0, 12.0, 16.0], "low_dr": [10.0, 15.0, 20.0], "low_leech": [4.0, 5.0, 6.0], "cc_resist_pct": [20.0, 25.0, 30.0],
-	"heal_pct": [5.0, 7.0, 9.0], "heal_taken_pct": [8.0, 10.0, 12.0], "buff_pct": [10.0, 15.0, 20.0],
-	"summon_time_pct": [10.0, 15.0, 20.0], "pet_pct": [8.0, 12.0, 16.0], "mp_cost_pct": [6.0, 9.0, 12.0],
-	"mp_regen_combat": [0.6, 0.8, 1.0], "frost_pct": [6.0, 8.0, 10.0], "fire_pct": [6.0, 8.0, 10.0], "thorns": [10.0, 15.0, 20.0],
-	"block": [4.0, 6.0, 8.0], "speed_pct": [6.0, 8.0, 10.0], "evasion": [3.0, 4.0, 5.0], "threat_pct": [15.0, 20.0, 25.0],
-	"backstab": [8.0, 10.0, 12.0], "gold_pct": [15.0, 20.0, 25.0]}
+	"dr_pct": [6.0, 8.0, 10.0, 11.0, 12.0], "kill_heal": [2.0, 3.0, 4.0, 5.0, 6.0], "proc_stun": [3.0, 4.0, 5.0, 5.5, 6.0], "hp_pct": [5.0, 7.0, 9.0, 11.0, 13.0],
+	"def_pct": [8.0, 10.0, 12.0, 14.0, 16.0], "atk_pct": [4.0, 5.0, 6.0, 7.0, 8.0], "matk_pct": [4.0, 5.0, 6.0, 7.0, 8.0], "lifesteal": [2.0, 3.0, 4.0, 5.0, 6.0],
+	"cdr": [4.0, 6.0, 8.0, 9.0, 10.0], "crit": [3.0, 4.0, 5.0, 6.0, 7.0], "crit_dmg_pct": [10.0, 15.0, 20.0, 25.0, 30.0], "aspd_pct": [5.0, 7.0, 9.0, 11.0, 13.0],
+	"dot_pct": [8.0, 12.0, 16.0, 20.0, 24.0], "low_dr": [10.0, 15.0, 20.0, 22.5, 25.0], "low_leech": [4.0, 5.0, 6.0, 7.0, 8.0], "cc_resist_pct": [20.0, 25.0, 30.0, 32.5, 35.0],
+	"heal_pct": [5.0, 7.0, 9.0, 11.0, 13.0], "heal_taken_pct": [8.0, 10.0, 12.0, 14.0, 16.0], "buff_pct": [10.0, 15.0, 20.0, 25.0, 30.0], "summon_time_pct": [10.0, 15.0, 20.0, 25.0, 30.0],
+	"pet_pct": [8.0, 12.0, 16.0, 20.0, 24.0], "mp_cost_pct": [6.0, 9.0, 12.0, 13.5, 15.0], "mp_regen_combat": [0.6, 0.8, 1.0, 1.2, 1.4], "frost_pct": [6.0, 8.0, 10.0, 12.0, 14.0],
+	"fire_pct": [6.0, 8.0, 10.0, 12.0, 14.0], "storm_pct": [6.0, 8.0, 10.0, 12.0, 14.0], "thorns": [10.0, 15.0, 20.0, 25.0, 30.0], "block": [4.0, 6.0, 8.0, 9.0, 10.0],
+	"speed_pct": [6.0, 8.0, 10.0, 11.0, 12.0], "evasion": [3.0, 4.0, 5.0, 5.5, 6.0], "threat_pct": [15.0, 20.0, 25.0, 30.0, 35.0], "backstab": [8.0, 10.0, 12.0, 14.0, 16.0],
+	"gold_pct": [15.0, 20.0, 25.0, 30.0, 35.0], "leader_dmg": [8.0, 10.0, 12.0, 14.0, 16.0]}
 ## Combos (D7): grupo -> [bônus com 2 do grupo, bônus a mais com as 3]. Chaves de Stats.STAT_KEYS ou ganchos das cartas
 ## (family_dmg/family_def = {família: %}).
 const CARD_GROUP_BONUS := {
@@ -2482,7 +2485,14 @@ const CARD_GROUP_BONUS := {
 	"lich_cult": [{"matk_pct": 3.0}, {"mp_cost_pct": 8.0}],
 	"gravediggers": [{"gold_pct": 8.0}, {"xp_pct": 5.0}],
 	"oathsworn": [{"evasion": 1.5}, {"dr_pct": 3.0}],
-	"velthar_archive": [{"cdr": 3.0}, {"atk_pct": 3.0, "matk_pct": 3.0}]}
+	"velthar_archive": [{"cdr": 3.0}, {"atk_pct": 3.0, "matk_pct": 3.0}],
+	# Ato II (cartas-ato2.md): bônus de 2 ≈ uma comum de T4-T5, de 3 ≈ duas
+	"goblin_caves": [{"aspd_pct": 5.0}, {"atk_pct": 3.0, "matk_pct": 3.0}],
+	"riders": [{"speed_pct": 4.0}, {"dash_pct": 10.0, "cc_resist_pct": 10.0}],
+	"broken_coast": [{"heal_taken_pct": 6.0}, {"hp_pct": 4.0, "mp_pct": 6.0}],
+	"trolls": [{"hp_pct": 5.0}, {"kill_heal": 3.0}],
+	"horde_archers": [{"crit": 2.0}, {"crit_dmg_pct": 14.0}],
+	"kharzun_slopes": [{"lifesteal": 0.75}, {"dot_pct": 14.0}]}
 
 # --- Bots com Memória: elenco, rival, guilda, socorro (design/gdd/bots-com-memoria.md; RosterSystem/GuildSystem) ---
 const ROSTER_SIZE := 10                  # bots do elenco por save (§9.1)
@@ -2870,7 +2880,7 @@ const AUCTION_FLOOD_MAX := 10                # até 10 vendas (−40%)
 const AUCTION_FLOOD_HALF_S := 1800.0         # a contagem cai pela metade a cada 30 min
 ## torneira: ouro/h que os bots pagam ao jogador por nível (balde de 1 h). Calibrado (auction_probe -- --hunt, 2026-11-27) para ~30% da
 ## caça (§10 P1): 4 bots caçando dão ~750 ouro/h por nível (L8 6,5k, L20 13,4k, L33 25,7k; ouro + venda ao mercador) -> 0,3 × 750 ≈ 220.
-## Passa da faixa segura da §7 (20-80), que supunha caça bem menor: decisão para o usuário confirmar.
+## Faixa segura 150-300 (§7); 220 confirmado pelo usuário 2026-11-27.
 const AUCTION_BOT_BUDGET_PER_LV := 220
 const AUCTION_PLAYER_LISTINGS := 12          # anúncios ativos do jogador
 const AUCTION_PLAYER_PRICE_MAX := 10.0       # preço por unidade até ref × isto

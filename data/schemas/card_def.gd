@@ -10,6 +10,6 @@ extends Resource
 @export var effect: String = ""        ## chave de Balance.CARD_COMMON / CARD_CORE
 @export var family: String = ""        ## family_dmg / family_def: família alvo (CardsCatalog.FAMILY)
 @export var group: String = ""         ## grupo de combo (Balance.CARD_GROUP_BONUS); "" no núcleo
-@export var tier: int = 0              ## 0..2 pelo nível do monstro (Balance.CARD_TIER_LEVELS); preenchido ao carregar
+@export var tier: int = 0              ## 0..4 pelo nível do monstro (Balance.CARD_TIER_LEVELS); preenchido ao carregar
 @export var value: float = 0.0         ## número do efeito (tabela da faixa); preenchido ao carregar
 @export var boss: bool = false         ## carta de chefe (chance Balance.CARD_CHANCE_BOSS)

@@ -1,6 +1,6 @@
 # Cartas de Monstro — Ato II (níveis 30-45), 2ª leva
 
-> Apêndice de `design/gdd/cartas.md` (mesmo formato de `cartas-ato1.md`). Status: **APROVADA pelo usuário** (2026-11-27, as 4 recomendações de "Perguntas para o usuário" aceitas: 2 faixas T4/T5, ganchos H1-H3 com chefe no H3, multiplicador ~5 nos núcleos de elite + medir com card_probe, família `horde`); antes: aguarda o usuário
+> Apêndice de `design/gdd/cartas.md` (mesmo formato de `cartas-ato1.md`). Status: **IMPLEMENTADA** (2026-11-27; `CARD_ELITE_ROLE_MULT` ×10 por decisão do usuário depois do `card_probe`, medir em grupo antes de subir). Antes: **APROVADA pelo usuário** (2026-11-27, as 4 recomendações de "Perguntas para o usuário" aceitas: 2 faixas T4/T5, ganchos H1-H3 com chefe no H3, multiplicador ~5 nos núcleos de elite + medir com card_probe, família `horde`); antes: aguarda o usuário
 > (perguntas no fim). Pedido do usuário: começar o Ato II (decisão 3 de §9 dizia "depois do teste de jogo").
 > Números: SÓ em `data/balance.gd` (`CARD_COMMON`, `CARD_CORE`, `CARD_GROUP_BONUS`, `CARD_TIER_LEVELS`); esta tabela mostra os
 > valores propostos. Dados das cartas: `data/catalog/cards_catalog.gd` (`COMMONS`, `CORES`, `FAMILY`). Nada implementado.

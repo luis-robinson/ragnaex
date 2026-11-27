@@ -3106,7 +3106,8 @@ func _check_loading_steps() -> void:
 ## em encaixes diferentes, encaixar/tirar (grátis), teto de núcleos, combos nos stats, sorteio com rng fixo, bestiário,
 ## save no TEST_SLOT, bots nunca encaixam e os ganchos (família, ouro, dash, cura no abate). `--only=cards`
 func _check_cards(gd, sim, save) -> void:
-	# 1) elegíveis do Ato I: XP > 0, nível <= 30, não é forma de metamorfose nem Eco, nasce só em mapa até o 30 (ou investida)
+	# 1) elegíveis dos Atos I e II (cartas-ato2.md): XP > 0, nível <= 45, não é forma de metamorfose nem Eco, nasce só em mapa
+	#    até o 45 (ou investida/chefe de mundo, sem spawner); o Ato III fica fora
 	var forms := {}
 	for mid in gd.monsters:
 		for f in gd.monsters[mid].shift_forms:
@@ -3114,11 +3115,11 @@ func _check_cards(gd, sim, save) -> void:
 	var want: Array = []
 	for mid in gd.monsters:
 		var md: MonsterDef = gd.monsters[mid]
-		if md.xp <= 0 or md.level > 30 or md.dummy or forms.has(mid) or CardsCatalog.ECHOES.has(mid) or md.elite_of != "":
+		if md.xp <= 0 or md.level > 45 or md.dummy or forms.has(mid) or CardsCatalog.ECHOES.has(mid) or md.elite_of != "":
 			continue
 		var ok := true
 		for m in CardSystem.maps_of(mid):
-			if gd.maps[m].level_range.y > 30:
+			if gd.maps[m].level_range.y > 45:
 				ok = false
 		if ok:
 			want.append(mid)
@@ -3128,7 +3129,7 @@ func _check_cards(gd, sim, save) -> void:
 		by_mob[cd.monster_id] = int(by_mob.get(cd.monster_id, 0)) + 1
 	var missing: Array = want.filter(func(m): return int(by_mob.get(m, 0)) != 1)
 	var extra: Array = by_mob.keys().filter(func(m): return not (m in want))
-	check(missing.is_empty() and extra.is_empty(), "cards: uma carta por monstro elegível do Ato I (faltam/repetidas %s, sobram %s)" % [missing, extra])
+	check(missing.is_empty() and extra.is_empty(), "cards: uma carta por monstro elegível dos Atos I-II (faltam/repetidas %s, sobram %s)" % [missing, extra])
 	check(gd.cards.size() == want.size(), "cards: %d cartas = %d elegíveis" % [gd.cards.size(), want.size()])
 	for e in CardsCatalog.ECHOES:
 		check(gd.card_of.get(e, "") == "card_" + CardsCatalog.ECHOES[e], "cards: Eco %s dá a carta do chefe" % e)
@@ -3169,7 +3170,43 @@ func _check_cards(gd, sim, save) -> void:
 		if not groups.has(g):
 			bad_g.append(g)
 	check(bad_g.is_empty(), "cards: todo grupo tem 3 comuns em encaixes diferentes e bônus de 2/3 (%s)" % [bad_g])
-	check(n_common == 75 and n_core == 37 and groups.size() == 25, "cards: Ato I = 75 comuns, 37 núcleos (34 + 3 chefes de mundo), 25 grupos (%d/%d/%d)" % [n_common, n_core, groups.size()])
+	check(n_common == 93 and n_core == 56 and groups.size() == 31, "cards: Ato I (75 comuns, 37 núcleos, 25 grupos) + Ato II (18, 19, 6) = 93/56/31 (%d/%d/%d)" % [n_common, n_core, groups.size()])
+	# Ato II (cartas-ato2.md, critérios 1-3): 24 comuns + 13 chefes de 31-45 com carta, lacaios/estandartes/iscas/wb_* sem
+	var act2: Array = ["goblin_lancer", "goblin_impaler", "goblin_agitator", "wolf_rider", "wolf_raider", "dire_wolf_rider", "naga_tide",
+		"naga_warrior", "orc_recruit", "troll_whelp", "troll", "troll_thrower", "orc_archer", "orc_crossbow", "orc_fire_archer", "dire_wolf",
+		"goblin_assassin", "lava_salamander", "orc_warrior", "troll_brute", "orc_warlord", "goblin_slayer", "clan_guard", "basalt_golem",
+		"boss_tide_mother", "boss_agitator_lord", "boss_troll_king", "boss_crossbow_master", "boss_ghar", "boss_dire_mother", "boss_shazka",
+		"boss_ulgra", "boss_gorbash", "boss_kragmar", "boss_durgash", "war_rhino", "iron_wolf_king"]
+	check(act2.size() == 37 and act2.all(func(m): return int(by_mob.get(m, 0)) == 1), "cards: os 37 monstros do Ato II têm uma carta cada")
+	var no_card: Array = ["naga_spawn", "goblin_rabble", "troll_runt", "orc_marksman", "orc_vanguard", "dire_pup", "shadow_apprentice",
+		"ulgra_rider", "stone_shaman", "forge_golemling", "throne_guard", "banner_wolf", "banner_stone", "banner_forge", "shazka_decoy",
+		"wb_platform_warrior", "wb_iron_wolf", "masked_reveler"]
+	check(no_card.all(func(m): return not gd.card_of.has(m)), "cards: lacaios, estandartes, isca, wb_* e o Ato III sem carta")
+	var bad_n: Array = []
+	for t in [Balance.CARD_COMMON, Balance.CARD_CORE]:
+		for k in t:
+			if (t[k] as Array).size() != Balance.CARD_TIER_LEVELS.size() + 1:
+				bad_n.append(k)
+	check(bad_n.is_empty(), "cards: toda lista de CARD_COMMON/CARD_CORE tem %d faixas (%s)" % [Balance.CARD_TIER_LEVELS.size() + 1, bad_n])
+	check(CardsCatalog.tier_of(30) == 2 and CardsCatalog.tier_of(31) == 3 and CardsCatalog.tier_of(37) == 3 and CardsCatalog.tier_of(38) == 4 and CardsCatalog.tier_of(45) == 4,
+		"cards: faixas T3 <= 30, T4 31-37, T5 38-45")
+	check(Balance.CARD_COMMON["family_dmg"].slice(0, 3) == [6.0, 8.0, 10.0] and Balance.CARD_CORE["dr_pct"].slice(0, 3) == [6.0, 8.0, 10.0], "cards: T1-T3 do Ato I iguais")
+	var spot := {"card_goblin_lancer": [2, 5.0], "card_goblin_impaler": [3, 12.0], "card_troll": [4, 3.0], "card_orc_crossbow": [4, 11.0],
+		"card_naga_tide": [3, 0.5], "card_dire_wolf": [4, 2.5], "card_boss_agitator_lord": [3, 12.0], "card_boss_crossbow_master": [4, 30.0],
+		"card_troll_brute": [4, 25.0], "card_orc_warlord": [4, 16.0], "card_basalt_golem": [4, 12.0], "card_war_rhino": [4, 16.0]}
+	var bad_v: Array = []
+	for cid in spot:
+		var cd2: CardDef = gd.cards.get(cid)
+		if cd2 == null or cd2.tier != int(spot[cid][0]) or not is_equal_approx(cd2.value, float(spot[cid][1])):
+			bad_v.append(cid)
+	check(bad_v.is_empty(), "cards: faixa e valor das cartas do Ato II batem com a tabela (%s)" % [bad_v])
+	check(CardsCatalog.FAMILY.has("horde") and CardsCatalog.FAMILY_NAMES.has("horde") and gd.card_family.get("orc_warlord", "") == "horde"
+		and gd.card_family.get("war_rhino", "") == "beast", "cards: família horde (Rinoceronte é fera)")
+	var horde_cards: Array = gd.cards.values().filter(func(c): return c.family == "horde")
+	check(horde_cards.size() == 2, "cards: só uma carta dá family_dmg horde e uma family_def horde (%d)" % horde_cards.size())
+	check(CardsCatalog.describe("family_dmg", 12.0, "horde") == "+12% de dano na Horda" and not CardsCatalog.describe("storm_pct", 12.0).begins_with("storm")
+		and not CardsCatalog.describe("regen_cut", 3.0).begins_with("regen") and not CardsCatalog.describe("ranged_def", 11.0).begins_with("ranged")
+		and not CardsCatalog.describe("leader_dmg", 16.0).begins_with("leader"), "cards: textos dos efeitos novos")
 	var unk: Array = CatalogUtil.unknown_keys.filter(func(k): return str(k).begins_with("CardDef"))
 	check(unk.is_empty(), "cards: CardDef sem chave desconhecida (%s)" % [unk])
 	# 3) encaixar / tirar / núcleos
@@ -3309,6 +3346,70 @@ func _check_cards(gd, sim, save) -> void:
 	var hp0: float = p.hp
 	CardSystem.on_kill(sim, [p], zombie, 0)
 	check(is_equal_approx(p.hp, hp0 + p.stats.max_hp * Balance.CARD_CORE["kill_heal"][1] / 100.0), "cards: Rei Slime cura %.0f%% da vida no abate" % Balance.CARD_CORE["kill_heal"][1])
+	# 8b) Ato II (cartas-ato2.md critério 4): H1 regen_cut, H2 ranged_def, H3 leader_dmg, núcleo de elite x CARD_ELITE_ROLE_MULT
+	p.cards = {}
+	p.inventory.clear()
+	CardSystem.refresh(p)
+	var tr1: SimEntity = sim.spawn_monster(gd.monsters["troll"], p.map_id, at + Vector3(-3, 0, 2))
+	var tr2: SimEntity = sim.spawn_monster(gd.monsters["troll"], p.map_id, at + Vector3(-3, 0, -2))
+	for t in [tr1, tr2]:
+		t.brain = null
+		t.debuffs.clear()
+		t.regen_hold = 0.0
+		t.hp = t.stats.max_hp * 0.5
+	CardSystem.on_hit(sim, p, tr2)
+	check(not MobSystem.regen_blocked(tr2), "cards H1: sem a carta o golpe não corta a regeneração")
+	p.add_item("card_troll", 1)
+	var sock_err: String = sim.card_socket(p, "weapon", "card_troll")
+	check(sock_err == "", "cards H1: Troll encaixa na arma (%s)" % sock_err)
+	var cut: float = Balance.CARD_COMMON["regen_cut"][4]
+	CardSystem.on_hit(sim, p, tr1)
+	var cut_d: Array = tr1.debuffs.filter(func(x): return x.get("id") == CardSystem.REGEN_CUT)
+	check(cut_d.size() == 1 and is_equal_approx(float(cut_d[0]["remaining"]), cut) and MobSystem.regen_blocked(tr1), "cards H1: Troll põe o corte de %.1f s (%s %s)" % [cut, p.card_fx, tr1.debuffs])
+	var hp1: float = tr1.hp
+	var hp2: float = tr2.hp
+	MobSystem.update_regen(sim, tr1, cut * 0.9)
+	MobSystem.update_regen(sim, tr2, cut * 0.9)
+	check(is_equal_approx(tr1.hp, hp1) and tr2.hp > hp2, "cards H1: com o corte o troll não regenera (%.0f), sem ele regenera (%.0f -> %.0f)" % [tr1.hp, hp2, tr2.hp])
+	CardSystem.on_hit(sim, p, wolf)
+	check(not wolf.debuffs.any(func(x): return x.get("id") == CardSystem.REGEN_CUT), "cards H1: monstro sem regeneração não leva o corte")
+	var xbow: SimEntity = sim.spawn_monster(gd.monsters["orc_crossbow"], p.map_id, at + Vector3(4, 0, 2))
+	var recruit: SimEntity = sim.spawn_monster(gd.monsters["orc_recruit"], p.map_id, at + Vector3(4, 0, -2))
+	xbow.brain = null
+	recruit.brain = null
+	check(is_equal_approx(CardSystem.damage_mult(xbow, p), 1.0), "cards H2: sem a carta o Besteiro bate inteiro")
+	p.add_item("card_orc_crossbow", 1)
+	sim.card_socket(p, "offhand", "card_orc_crossbow")
+	var rd: float = Balance.CARD_COMMON["ranged_def"][4]
+	check(is_equal_approx(CardSystem.damage_mult(xbow, p), 1.0 - rd / 100.0) and is_equal_approx(CardSystem.damage_mult(recruit, p), 1.0),
+		"cards H2: Besteiro tira -%.0f%%, o Recruta (corpo a corpo) não muda" % rd)
+	p.cards = {}
+	p.inventory.clear()
+	p.add_item("card_orc_warlord", 1)
+	sim.card_socket(p, "weapon", "card_orc_warlord")
+	var ld: float = Balance.CARD_CORE["leader_dmg"][4]
+	var warlord: SimEntity = sim.spawn_monster(gd.monsters["orc_warlord"], p.map_id, at + Vector3(6, 0, 0))
+	var ghar: SimEntity = sim.spawn_monster(gd.monsters["boss_ghar"], p.map_id, at + Vector3(6, 0, 3))
+	var whelp: SimEntity = sim.spawn_monster(gd.monsters["troll_whelp"], p.map_id, at + Vector3(6, 0, -3))
+	for t in [warlord, ghar, whelp]:
+		t.brain = null
+	check(gd.card_leaders.has("orc_warlord") and gd.card_leaders.has("boss_ghar") and gd.card_leaders.has("goblin_impaler") and not gd.card_leaders.has("troll_whelp"),
+		"cards H3: GameData.card_leaders = escolta, elite e chefe")
+	check(is_equal_approx(CardSystem.damage_mult(p, warlord), 1.0 + ld / 100.0) and is_equal_approx(CardSystem.damage_mult(p, ghar), 1.0 + ld / 100.0)
+		and is_equal_approx(CardSystem.damage_mult(p, king), 1.0 + ld / 100.0) and is_equal_approx(CardSystem.damage_mult(p, whelp), 1.0),
+		"cards H3: +%.0f%% no Senhor da Guerra, no Ghar e no Rei; x1 no Trollzinho sem escolta" % ld)
+	var golem_b: SimEntity = sim.spawn_monster(gd.monsters["basalt_golem"], p.map_id, at + Vector3(-6, 0, 0))
+	var brute: SimEntity = sim.spawn_monster(gd.monsters["troll_brute"], p.map_id, at + Vector3(-6, 0, 3))
+	golem_b.brain = null
+	brute.brain = null
+	check(is_equal_approx(CardSystem.drop_chance(sim, p, golem_b, "card_basalt_golem"), minf(Balance.CARD_CHANCE_CORE * Balance.CARD_ELITE_ROLE_MULT * LootSystem.drop_mult(p), 1.0))
+		and is_equal_approx(CardSystem.drop_chance(sim, p, brute, "card_troll_brute"), minf(Balance.CARD_CHANCE_CORE * LootSystem.drop_mult(p), 1.0)),
+		"cards: núcleo de elite x%.0f (Golem de Basalto), núcleo de bruto sem" % Balance.CARD_ELITE_ROLE_MULT)
+	for t in [tr1, tr2, xbow, recruit, warlord, ghar, whelp, golem_b, brute]:
+		sim.despawn(t)
+	p.cards = {}
+	p.inventory.clear()
+	CardSystem.refresh(p)
 	# 9) bestiário: títulos por mapa completo
 	p.bestiary = {}
 	check(CardSystem.titles(p).is_empty(), "cards: sem cartas, sem título")
@@ -3321,7 +3422,7 @@ func _check_cards(gd, sim, save) -> void:
 	CardSystem.refresh(p)
 
 ## Arte das Cartas (GDD cartas.md §9.4): toda carta do Ato I (GameData.cards; sem catálogo, a regra do §3.1 em
-## card_icons.gd) tem a foto assets/icons/card_<monstro>.png. Refazer: tools/icons/card_icons.tscn -- --band=1-30. `--only=card_icons`
+## card_icons.gd) tem a foto assets/icons/card_<monstro>.png. Refazer: tools/icons/card_icons.tscn -- --band=1-45. `--only=card_icons`
 ## Chefes de Mundo (momentos-do-mundo §10): um por faixa, chefe de verdade no topo da faixa, modelo próprio, 3 fases com
 ## lacaios 0 XP, fúria, falas; toda skill do kit existe e pede um clipe que o GLB tem (e que tem quadro de impacto); uma
 ## assinatura com aviso de som; voz; carta + arte só os do Ato I; na boss_probe no mapa da faixa.
@@ -3368,29 +3469,30 @@ func _check_world_boss_data(gd) -> void:
 				sigs += 1
 				check(Sfx.SIG_WARN.has(sid), "%s: assinatura %s avisa com som (Sfx.SIG_WARN)" % [bid, sid])
 		check(sigs == 1, "%s: uma assinatura (%d)" % [bid, sigs])
-		# cartas: só os do Ato I (o resto vem com as cartas do Ato II/III)
+		# cartas: os dos Atos I e II (cartas-ato2.md; o Ato III vem com a leva dele)
 		var card: String = "card_%s" % bid
-		if md.level <= 30:
-			check(gd.cards.has(card) and gd.cards[card].core and ResourceLoader.exists("res://assets/icons/card_%s.png" % bid), "%s: carta de núcleo do Ato I com arte" % bid)
+		if md.level <= 45:
+			check(gd.cards.has(card) and gd.cards[card].core and ResourceLoader.exists("res://assets/icons/card_%s.png" % bid), "%s: carta de núcleo com arte" % bid)
 		else:
-			check(not gd.cards.has(card), "%s: sem carta até a leva do Ato II/III" % bid)
+			check(not gd.cards.has(card), "%s: sem carta até a leva do Ato III" % bid)
 
 func _check_card_icons(gd) -> void:
 	var tool = load("res://tools/icons/card_icons.gd")
 	check(tool != null, "card_icons: card_icons.gd carrega")
 	if tool == null:
 		return
-	var ids: Array = tool.card_monsters(1, 30)
-	check(ids.size() > 0, "card_icons: há monstros com carta no Ato I")
+	var ids: Array = tool.card_monsters(1, 45)
+	check(ids.size() > 0, "card_icons: há monstros com carta nos Atos I-II")
+	check(tool.card_monsters(31, 45).size() == 36 and ids.has("goblin_lancer"), "card_icons: a ferramenta lista os 37 do Ato II (36 de 31-45 + o Lanceiro, nível 30) (%d)" % tool.card_monsters(31, 45).size())
 	var missing: Array = []
 	for mid in ids:
 		if not ResourceLoader.exists("res://assets/icons/card_%s.png" % mid):
 			missing.append(mid)
-	check(missing.is_empty(), "card_icons: carta do Ato I sem arte (rode card_icons.tscn -- --only=...): %s" % [missing])
+	check(missing.is_empty(), "card_icons: carta dos Atos I-II sem arte (rode card_icons.tscn -- --only=...): %s" % [missing])
 	for cid in gd.cards:
 		var m: MonsterDef = gd.monsters.get(gd.cards[cid].monster_id)
-		if m and m.level <= 30:
-			check(ids.has(m.id), "card_icons: carta %s do Ato I está na lista da ferramenta" % cid)
+		if m and m.level <= 45:
+			check(ids.has(m.id), "card_icons: carta %s está na lista da ferramenta" % cid)
 
 func _check_loading_art(gd) -> void:
 	var missing: Array = []

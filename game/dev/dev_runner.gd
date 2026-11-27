@@ -2315,19 +2315,24 @@ func _menu_check() -> void:
 
 ## --cards_shot=<pasta>: Cartas de Monstro (GDD cartas.md): encaixa 5 cartas (2 núcleos, Matilha completa), bestiário com a
 ## Praia completa e alguns vistos, abre a janela C na aba Cartas (a_cards.png), o Bestiário (b_bestiary.png) e solta um baú de
-## carta comum e um de núcleo ao lado do jogador (c_drop.png).
+## carta comum e um de núcleo ao lado do jogador (c_drop.png). `--cards_act2` = encaixa cartas do Ato II (cartas-ato2.md).
 func _cards_shot(dir: String) -> void:
 	DirAccess.make_dir_recursive_absolute(dir)
 	await get_tree().create_timer(2.5).timeout
 	Sim.sync()
 	var p: SimEntity = Sim.player
-	for c in ["card_wolf", "card_grove_wolf", "card_rot_wolf", "card_golem_ancient", "card_bone_captain", "card_crab", "card_spider", "card_crab_king"]:
+	var bag: Array = ["card_wolf", "card_grove_wolf", "card_rot_wolf", "card_golem_ancient", "card_bone_captain", "card_crab", "card_spider", "card_crab_king"]
+	var sockets: Array = [["boots", "card_wolf"], ["weapon", "card_grove_wolf"], ["accessory", "card_rot_wolf"], ["chest", "card_golem_ancient"], ["head", "card_bone_captain"]]
+	if DevArgs.has("--cards_act2"):     # Ato II (cartas-ato2.md): núcleo leader_dmg + Durgash, Trolls (2), Lobo Atroz, Arco de Fogo
+		bag = ["card_orc_warlord", "card_boss_durgash", "card_troll_thrower", "card_troll_whelp", "card_dire_wolf", "card_orc_fire_archer", "card_troll", "card_orc_crossbow", "card_boss_ulgra"]
+		sockets = [["weapon", "card_orc_warlord"], ["head", "card_boss_durgash"], ["offhand", "card_troll_thrower"], ["chest", "card_troll_whelp"], ["boots", "card_dire_wolf"], ["accessory", "card_orc_fire_archer"]]
+	for c in bag:
 		p.add_item(c, 1)
-	for pair in [["boots", "card_wolf"], ["weapon", "card_grove_wolf"], ["accessory", "card_rot_wolf"], ["chest", "card_golem_ancient"], ["head", "card_bone_captain"]]:
+	for pair in sockets:
 		var err: String = Sim.card_socket(p, pair[0], pair[1])
 		if err != "":
 			print("CARDS_SHOT encaixe ", pair, " ", err)
-	for cid in CardSystem.cards_of_map("field_crab_beach") + ["card_wolf", "card_grove_wolf", "card_rot_wolf", "card_golem_ancient", "card_bone_captain", "card_spider"]:
+	for cid in CardSystem.cards_of_map("field_crab_beach") + ["card_wolf", "card_grove_wolf", "card_rot_wolf", "card_golem_ancient", "card_bone_captain", "card_spider"] + bag:
 		p.bestiary[GameData.cards[cid].monster_id] = CardSystem.SEEN | CardSystem.FOUND
 	for mid in ["slime", "slime_blue", "boar", "zombie", "bone_archer", "wasp"]:
 		p.bestiary[mid] = int(p.bestiary.get(mid, 0)) | CardSystem.SEEN

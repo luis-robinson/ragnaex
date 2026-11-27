@@ -85,7 +85,7 @@ continua sem poção na sonda.
 `Stats` (`xp_pct`, `drop_pct` em `STAT_KEYS`/`compute`), `LootSystem` (`xp_mult`, `drop_mult`, abate), `ItemSystem.roll_legendary`,
 `WorldSim._kill` (não tira `keep_death`), `HuntPotionSystem` (core/sim/systems), `ItemsCatalog`/`RecipesCatalog` (laço por grau),
 `SaveSystem` (`hunt_buffs`), `BotBrain` + `BotsCatalog.HUNT_POTION_LINES`, `BuffLooks.HUNT`, `Hud._buff_source`, `item_icons` (`_a_tonic`, `_a_fortune`),
-`cartas.md` (o sorteio de carta chama `LootSystem.drop_mult(e)`), `SiegeSystem.xp_mult` (soma no mesmo teto).
+`cartas.md` (o sorteio de carta chama `LootSystem.drop_mult(e)`), `SiegeSystem.xp_mult` (soma no mesmo teto), `casa-de-leiloes.md` (poções à venda no leilão, `AuctionSystem`).
 
 ## 7. Tuning Knobs (`data/balance.gd`)
 

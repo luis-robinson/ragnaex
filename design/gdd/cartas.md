@@ -70,8 +70,8 @@ Bots também acham e comentam (não encaixam: o poder deles fica calibrado sem c
 a carta volta para a bolsa.
 
 **3.7 Repetidas.** Com 1 carta a cada 20-30 min, repetidas vão ser comuns: elas vão para a **Casa de Leilões** (D6),
-onde o jogador vende e compra cartas, e os bots também (spec própria: `casa-de-leiloes.md`). Até lá, vender ao
-mercador por um valor baixo.
+onde o jogador vende e compra cartas, e os bots também (spec própria: `casa-de-leiloes.md`, implementada em 2026-11-27: `AuctionSystem`, NPC Leiloeiro). O mercador continua
+comprando por um valor baixo.
 
 **3.8 Bestiário.** Janela nova: monstros vistos, carta de cada um (achada / falta / nunca visto), mapa e faixa onde vivem,
 e os grupos de combo. Zona completa = **título** ("Caçador do Vale"), sem bônus.
@@ -127,7 +127,7 @@ Meta D3: `cartas/h = abates/h × p_média ≈ 180 × 0,0133 ≈ 2,4` (alvo 2-3/h
 `SimEntity.recompute_stats` → `Stats.compute` (stats das cartas como bônus), `SaveSystem` (`cards`, `bestiary`), `GameData`
 (`cards`, itens `card_<monstro>`), `windows` (janela C: encaixes; janela nova Bestiário), `npc_ui` (o mercador compra),
 `FxManager`/`LootChest`/`Sfx` (baú brilhante e som), `BotChat` (comentário dos bots), ícones `tools/icons/card_icons.tscn`
-(`assets/icons/card_<monstro>.png`). Futuro: `casa-de-leiloes.md` (repetidas). Poção da Fortuna (`LootSystem.drop_mult`).
+(`assets/icons/card_<monstro>.png`). `casa-de-leiloes.md` (repetidas; `AuctionSystem`). Poção da Fortuna (`LootSystem.drop_mult`).
 
 ## 7. Tuning Knobs (`data/balance.gd`)
 

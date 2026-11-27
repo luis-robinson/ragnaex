@@ -23,6 +23,7 @@ var _basic_cache: Dictionary = {}
 var cards: Dictionary = {}        # id da carta ("card_<monstro>") -> CardDef (CardsCatalog; GDD cartas.md)
 var card_family: Dictionary = {}  # monster_id -> família (CardsCatalog.FAMILY; family_dmg/family_def)
 var card_of: Dictionary = {}      # monster_id -> id da carta (Ecos de chefe apontam para a do chefe)
+var card_leaders: Dictionary = {} # monster_id -> true: líder (escolta), elite (stat_role/elite_of) ou chefe (carta leader_dmg, cartas-ato2.md H3)
 var ultimates: Dictionary = {}    # class_id -> {build_id -> skill_id} (Supremas do 40, SkillDef.ultimate; UltimateSystem)
 var basic_skills: Dictionary = {}   # id -> SkillDef dos básicos gerados (o FX acha o tema por aqui)
 
@@ -84,6 +85,9 @@ func load_all() -> void:
 	_scale_attrs()
 	for m in MonstersCatalog.build():
 		monsters[m.id] = m
+	for m: MonsterDef in monsters.values():
+		if not m.escort.is_empty() or m.stat_role == "elite" or m.elite_of != "" or m.is_boss:
+			card_leaders[m.id] = true
 	for c in CardsCatalog.build(monsters):          # Cartas de Monstro: uma por monstro + o item da bolsa
 		cards[c.id] = c
 		card_of[c.monster_id] = c.id

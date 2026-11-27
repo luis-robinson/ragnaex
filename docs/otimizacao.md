@@ -151,3 +151,41 @@ laços ficaram dentro do ruído.
   a cada 4 ticks).
 - **Grade exata para os alvos dos bots**: a grade do tick fica velha depois que as entidades andam; não dá a mesma soma.
 
+
+## Sim com GvG/leilão/elenco (2026-11-27)
+
+Pedido: o teste longo (`performance da simulação`, 3000 ticks, limite 40 s) passava raspando (37-45 s no master).
+Perfil com cronômetros temporários (`sim_probe --suite --warm=0 --ticks=3000 --phases`, removidos depois): o custo
+continua espalhado por entidade acordada; os sistemas novos (GvG, leilão, elenco) somam ~0 sem guerra/elenco ligados.
+Achados: `update_spawners` 0,78 ms/tick (a lista `alive` de TODO spawner era refeita com lambda a cada despawn do
+MUNDO: com 3000 entidades, quase todo tick), `_dormant` 0,39 (`has_meta` por monstro acordado), `_defend` 0,30
+(`raid_status` montava um dicionário e copiava ids a cada pensamento de bot em mapa com investida), projéteis 0,55.
+
+### Aplicado (soma de conferência idêntica antes/depois em todas as rodadas)
+
+1. **Spawner sujo só quando um monstro DELE some**: `SimEntity.spawner_ref` (posto em `spawn_monster`), `despawn`
+   marca `sp["dirty"]`; `MobSystem.update_spawners` só refaz a lista desse (0,78 → ~0,5 ms/tick).
+2. `SimEntity.dorm_seen` no lugar do meta `dorm_seen`; o laço de comandos descarta o monstro dormindo antes de
+   qualquer chamada (mesmas condições, outra ordem).
+3. `BotBrain._defend`: `RaidSystem.any_active(m)` antes de `raid_status` (0,30 → 0,06 ms/tick).
+4. `TrapSystem.update_traps` e `_update_projectiles` saem cedo com lista vazia; o teste de acerto do projétil mede a
+   distância antes das condições (puras) de alvo (0,45 → 0,15-0,2 ms/tick).
+5. Grade de separação com chave inteira (`WorldSim.sep_key`) no lugar de `Vector2i` (`_index_map`, `_separate`,
+   `MonsterBrain._isolated`).
+
+### Números (`sim_probe --suite --warm=0 --ticks=3000`, pares alternados)
+
+| Rodada | base (ms/tick) | otimizado (ms/tick) |
+|---|---|---|
+| r1 (itens 1-4, máquina calma) | 10,99 / 11,26 | 10,84 / 10,39 |
+| r2 (itens 1-5) | 11,72 / 11,08 | 10,75 / 10,19 |
+
+Teste longo da suíte: 35,4 s (itens 1-4, máquina calma) contra 37,2-45,2 s antes; com os itens 1-5 e outros Godot
+abertos ao mesmo tempo, 40,0 s: a medida da suíte oscila muito com a máquina ocupada (a calibração de 1 thread não
+vê a disputa de memória). Meta de 32 s não alcançada.
+
+### Ainda caro (próximos candidatos)
+
+- `upd_MONSTER` ~1,6, `think_bot` ~1,5, `index_map` ~1,4, `apply_MONSTER` ~1,0, `upd_NPC` ~0,8 ms/tick (NPC parado
+  só soma `state_time`); Aldara sozinha ~2,2 ms/tick (comandos 1,2). Um índice só de monstros por mapa para
+  `nearest_hostile`/`_pick_monster` dos bots continua sendo o maior ganho provável (ver "Considerado e não aplicado").

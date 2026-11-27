@@ -2682,6 +2682,10 @@ func _dash_arrive(e: SimEntity, dp: Dictionary, m: Dictionary) -> void:
 
 const SEP_CELL := 3.0
 
+## Chave inteira da célula da grade de separação (mais barata que Vector2i no dicionário; vale até ±4096 células = ±12 km).
+static func sep_key(cx: int, cz: int) -> int:
+	return (cx + 4096) * 8192 + (cz + 4096)
+
 ## Uma vez por tick do mapa: grade de 3 m com as entidades vivas (separação olha só as 9 células em volta)
 ## e a lista de quem um monstro pode querer atacar (jogador, bots, invocações).
 ## Monstro dorme sem alvo e sem personagem por perto (confere a cada 20 ticks); acorda ao ser atacado ou alguém chegar.
@@ -2708,7 +2712,7 @@ func _index_map(m: Dictionary) -> void:
 		if o.state == SimEntity.State.DEAD:
 			continue
 		var op := o.position
-		var k := Vector2i(floori(op.x / SEP_CELL), floori(op.z / SEP_CELL))
+		var k := (floori(op.x / SEP_CELL) + 4096) * 8192 + floori(op.z / SEP_CELL) + 4096     # = sep_key, sem a chamada
 		var cell = grid.get(k)
 		if cell != null:
 			cell.append(o)
@@ -2730,7 +2734,7 @@ func _separate(e: SimEntity, m: Dictionary) -> void:
 	var cz := floori(e.position.z / SEP_CELL)
 	for dx in range(-1, 2):
 		for dz in range(-1, 2):
-			var cell = grid.get(Vector2i(cx + dx, cz + dz))
+			var cell = grid.get((cx + dx + 4096) * 8192 + cz + dz + 4096)     # = sep_key
 			if cell != null:
 				_separate_from(e, cell)          # célula por célula, na mesma ordem (sem montar uma lista por entidade)
 

@@ -1,6 +1,6 @@
 # Casa de Leilões — o mercado do mundo
 
-> Status: **APROVADA PARA IMPLEMENTAR** (2026-11-25, decisão D6 de `cartas.md`). Nada implementado. Decisões do usuário em §0 e §9.
+> Status: **IMPLEMENTADA** (2026-11-27: `AuctionSystem`, `AuctionUi`; regra resumida em `docs/DESIGN.md` "Casa de Leilões"). Aprovada em 2026-11-25 (decisão D6 de `cartas.md`). Decisões do usuário em §0 e §9.
 > Vem depois de `cartas.md`. §5-8 entram por escrito no começo da implementação (escritas 2026-11-27, **aprovadas pelo usuário 2026-11-27** com as 4 recomendações de §10).
 > Liga com: `cartas.md` (repetidas vão para cá), `pocoes-de-caca.md` (poções à venda), `bots-com-memoria.md` (bots que vendem).
 
@@ -241,7 +241,7 @@ Exemplo de laço fechado: Poção do mercador a 50, comprada na Feira por 43; o 
 | `AUCTION_CRAFT_PAY_MAX` | 1,0 | 0,8-1,0 | curva | fabricar com material comprado nunca dá lucro |
 | `AUCTION_PLUS_RECOVER` | 0,7 | 0,4-0,8 | curva | aprimorar para vender nunca dá lucro (0,7 × 1,1 × 0,95 = 0,73) |
 | `AUCTION_FLOOD_STEP` / `AUCTION_FLOOD_MAX` / `AUCTION_FLOOD_HALF_S` | 0,04 / 10 / 1800 | 0,02-0,1 / 5-15 / 900-3600 | curva | vender muito do mesmo item derruba o preço (até −40%), volta pela metade a cada 30 min |
-| `AUCTION_BOT_BUDGET_PER_LV` | **220** ouro por nível por h (usuário 2026-11-27; caça medida ≈ 750/h por nível) | 150-300 | curva | **torneira**: o máximo que bots pagam ao jogador por hora (nível 20 = 800/h); calibrar para ≈ 30% do ouro/h de caça medido na faixa (§10, P1) |
+| `AUCTION_BOT_BUDGET_PER_LV` | **220** ouro por nível por h (usuário 2026-11-27; caça medida ≈ 750/h por nível) | 150-300 | curva | **torneira**: o máximo que bots pagam ao jogador por hora (nível 20 = 4.400/h); calibrar para ≈ 30% do ouro/h de caça medido na faixa (§10, P1) |
 | `AUCTION_PLAYER_LISTINGS` | 12 | 6-30 | portão | anúncios ativos do jogador |
 | `AUCTION_PLAYER_PRICE_MAX` | 10 × ref | 3-20 | portão | erro de digitação / estouro |
 | `AUCTION_MAIL_MAX` | 60 | 30-120 | portão | caixa cheia bloqueia só compra |

@@ -1,6 +1,6 @@
 class_name CardsCatalog
 extends RefCounted
-## Cartas de Monstro do Ato I (GDD design/gdd/cartas.md, lista em cartas-ato1.md). Números SÓ em Balance.CARD_*.
+## Cartas de Monstro dos Atos I e II (GDD design/gdd/cartas.md, listas em cartas-ato1.md e cartas-ato2.md). Números SÓ em Balance.CARD_*.
 
 ## Comuns: [monstro, encaixe, efeito, família do efeito ("" = não usa), grupo]
 const COMMONS := [
@@ -79,6 +79,25 @@ const COMMONS := [
 	["archive_copyist", "head", "xp_pct", "", "velthar_archive"],
 	["archive_warden", "offhand", "family_def", "construct", "velthar_archive"],
 	["ink_wraith", "weapon", "proc_slow", "", "velthar_archive"],
+	# Ato II (cartas-ato2.md, G26-G31)
+	["goblin_lancer", "boots", "speed_pct", "", "goblin_caves"],
+	["goblin_impaler", "weapon", "family_dmg", "horde", "goblin_caves"],
+	["goblin_agitator", "head", "cc_resist_pct", "", "goblin_caves"],
+	["wolf_rider", "boots", "dash_pct", "", "riders"],
+	["wolf_raider", "accessory", "gold_pct", "", "riders"],
+	["dire_wolf_rider", "weapon", "proc_slow", "", "riders"],
+	["naga_tide", "head", "mp_regen_combat", "", "broken_coast"],
+	["naga_warrior", "offhand", "thorns", "", "broken_coast"],
+	["orc_recruit", "chest", "hp_pct", "", "broken_coast"],
+	["troll_whelp", "chest", "heal_taken_pct", "", "trolls"],
+	["troll", "weapon", "regen_cut", "", "trolls"],
+	["troll_thrower", "offhand", "family_def", "horde", "trolls"],
+	["orc_archer", "weapon", "crit", "", "horde_archers"],
+	["orc_crossbow", "offhand", "ranged_def", "", "horde_archers"],
+	["orc_fire_archer", "accessory", "mp_on_kill", "", "horde_archers"],
+	["dire_wolf", "boots", "evasion", "", "kharzun_slopes"],
+	["goblin_assassin", "weapon", "proc_poison", "", "kharzun_slopes"],
+	["lava_salamander", "chest", "def_pct", "", "kharzun_slopes"],
 ]
 
 ## Núcleos: [monstro, encaixe, efeito]. Chefe ou monstro comum (o MonsterDef diz).
@@ -97,6 +116,15 @@ const CORES := [
 	["tower_bat", "weapon", "backstab"], ["golem", "chest", "def_pct"], ["citadel_knight", "offhand", "dr_pct"],
 	# Chefes de Mundo do Ato I (momentos-do-mundo §10; Ato II/III depois): presa que atordoa, galhada de espinhos, couro de pedra
 	["ancestral_boar", "weapon", "proc_stun"], ["ancient_elk", "offhand", "thorns"], ["ruins_basilisk", "chest", "dr_pct"],
+	# Ato II (cartas-ato2.md): chefes de campo/masmorra/fortaleza/cidadela/raide e de mundo
+	["boss_tide_mother", "accessory", "heal_pct"], ["boss_agitator_lord", "weapon", "storm_pct"], ["boss_troll_king", "chest", "hp_pct"],
+	["boss_crossbow_master", "weapon", "crit_dmg_pct"], ["boss_ghar", "offhand", "thorns"], ["boss_dire_mother", "head", "pet_pct"],
+	["boss_shazka", "accessory", "dot_pct"], ["boss_ulgra", "boots", "speed_pct"], ["boss_gorbash", "accessory", "kill_heal"],
+	["boss_kragmar", "weapon", "fire_pct"], ["boss_durgash", "head", "cdr"], ["war_rhino", "chest", "def_pct"],
+	["iron_wolf_king", "weapon", "aspd_pct"],
+	# Ato II: núcleos de monstro comum (2 brutos + 4 elites, estas com Balance.CARD_ELITE_ROLE_MULT)
+	["orc_warrior", "head", "buff_pct"], ["troll_brute", "chest", "low_dr"], ["orc_warlord", "weapon", "leader_dmg"],
+	["goblin_slayer", "weapon", "backstab"], ["clan_guard", "offhand", "block"], ["basalt_golem", "chest", "dr_pct"],
 ]
 
 ## Eco de chefe dá a carta do chefe original (com Balance.CARD_CHANCE_ECHO).
@@ -108,7 +136,8 @@ const ECHOES := {"echo_ghoul_giant": "ghoul_giant", "echo_death_knight": "death_
 const FAMILY := {
 	"beast": ["boar", "wolf", "crab", "crab_sand", "crab_hermit", "bear_cub", "bear", "grove_bear", "grove_wolf", "elf_lynx",
 		"griffin", "griffin_raider", "bog_toad", "tower_bat", "carrion_crow", "rest_bear", "boar_brute", "boar_king", "crab_king",
-		"bear_mother", "bog_mother", "dragonling", "elf_captain_sky", "ancestral_boar", "ancient_elk", "ruins_basilisk"],
+		"bear_mother", "bog_mother", "dragonling", "elf_captain_sky", "ancestral_boar", "ancient_elk", "ruins_basilisk",
+		"dire_wolf", "lava_salamander", "boss_dire_mother", "war_rhino", "iron_wolf_king"],
 	"insect": ["wasp", "wasp_soldier", "hive", "spider", "marsh_spider", "sap_spider", "marsh_leech", "web_weaver", "larva", "spider_queen"],
 	"undead": ["zombie", "bone_recruit", "bone_archer", "ghoul", "wraith", "ghost", "rest_thaw_wraith", "rot_wolf", "rot_zombie",
 		"rot_ghoul", "rest_ghoul", "rot_bear", "skel_archer", "skeleton", "skel_guard", "rest_bones", "rest_bone_archer",
@@ -117,12 +146,17 @@ const FAMILY := {
 		"fallen_bearer", "crypt_lord", "lich_king", "boss_azhar_scribe"],
 	"humanoid": ["bandit_footpad", "bandit_thief", "bandit_archer", "bandit", "bandit_outlaw", "marsh_smuggler", "shaman_shifter",
 		"shaman_caller", "cultist", "citadel_adept", "rest_lost_adept", "archive_copyist", "bandit_chief", "boss_archdruid",
-		"frost_mage", "echo_frost_mage"],
+		"frost_mage", "echo_frost_mage", "naga_tide", "naga_warrior", "boss_tide_mother"],
 	"elf": ["elf_raider", "elf_raider_archer", "elf_raider_mage", "elf_archer", "elf_warrior", "elf_sergeant", "elf_warden",
 		"elf_tender", "elf_captain_hunter", "elf_captain_sap", "elf_king"],
 	"construct": ["slime", "slime_blue", "golem_moss", "golem_stone", "golem_shard", "golem", "archive_warden", "slime_king",
-		"golem_ancient", "crystal_warden", "quarry_heart"],
+		"golem_ancient", "crystal_warden", "quarry_heart", "basalt_golem"],
 	"plant": ["trent_young", "ent", "trent", "sap_sprout", "boss_sap_mother"],
+	# Ato II: a Horda (goblins, orcs, trolls, ginetes); bichos da Horda ficam em beast
+	"horde": ["goblin_lancer", "goblin_impaler", "goblin_agitator", "wolf_rider", "wolf_raider", "dire_wolf_rider", "orc_recruit",
+		"orc_warrior", "orc_warlord", "troll_whelp", "troll", "troll_thrower", "troll_brute", "orc_archer", "orc_crossbow",
+		"orc_fire_archer", "goblin_assassin", "goblin_slayer", "clan_guard", "boss_agitator_lord", "boss_troll_king",
+		"boss_crossbow_master", "boss_ghar", "boss_shazka", "boss_ulgra", "boss_gorbash", "boss_kragmar", "boss_durgash"],
 }
 
 ## Falas do bot que achou uma carta (%s = nome da carta).
@@ -131,7 +165,7 @@ const BOT_LINES := ["Opa! %s!", "Caiu uma %s aqui!", "Olha só, %s. Alguém quer
 
 ## Nome das famílias e dos grupos (texto do jogo).
 const FAMILY_NAMES := {"beast": "feras", "insect": "insetos", "undead": "mortos-vivos", "humanoid": "humanos",
-	"elf": "elfos", "construct": "constructos", "plant": "plantas"}
+	"elf": "elfos", "construct": "constructos", "plant": "plantas", "horde": "a Horda"}
 const GROUP_NAMES := {
 	"aldara_fields": "Campos de Aldara", "crab_beach": "Praia dos Caranguejos", "hollow_swarm": "Enxame do Vale",
 	"bears": "Ursos da Mata", "wolf_pack": "Matilha", "catacomb_dead": "Mortos da Catacumba", "wraiths": "Espectros",
@@ -139,7 +173,9 @@ const GROUP_NAMES := {
 	"woken_grove": "Bosque Desperto", "elf_beasts": "Feras Élficas", "marsh": "Brejo", "grove_circle": "Círculo do Bosque",
 	"elf_scouts": "Batedores Élficos", "tree_guard": "Guarda da Árvore", "ghouls": "Carniçais", "rot": "Podridão",
 	"bone_legion": "Legião de Ossos", "masterless": "Desgarrados", "lich_cult": "Culto do Lich", "gravediggers": "Coveiros",
-	"oathsworn": "Juramentados", "velthar_archive": "Arquivo de Vel'Thar"}
+	"oathsworn": "Juramentados", "velthar_archive": "Arquivo de Vel'Thar",
+	"goblin_caves": "Grutas Goblin", "riders": "Ginetes", "broken_coast": "Costa Partida", "trolls": "Trolls",
+	"horde_archers": "Arqueiros da Horda", "kharzun_slopes": "Encostas de Kharzun"}
 const SLOT_NAMES := {"weapon": "Arma", "offhand": "Mão secundária", "head": "Cabeça", "chest": "Peito", "boots": "Botas",
 	"accessory": "Acessório"}
 
@@ -148,8 +184,8 @@ static func describe(effect: String, v: float, family: String = "") -> String:
 	var n := ("%d" % int(v)) if is_equal_approx(v, roundf(v)) else ("%.2f" % v).rstrip("0").replace(".", ",")
 	var fam: String = FAMILY_NAMES.get(family, family)
 	match effect:
-		"family_dmg": return "+%s%% de dano em %s" % [n, fam]
-		"family_def": return "-%s%% de dano recebido de %s" % [n, fam]
+		"family_dmg": return ("+%s%% de dano na %s" % [n, fam.substr(2)]) if fam.begins_with("a ") else ("+%s%% de dano em %s" % [n, fam])
+		"family_def": return ("-%s%% de dano recebido da %s" % [n, fam.substr(2)]) if fam.begins_with("a ") else ("-%s%% de dano recebido de %s" % [n, fam])
 		"proc_poison": return "%s%% de chance de envenenar ao acertar" % n
 		"proc_slow": return "%s%% de chance de deixar lento ao acertar" % n
 		"proc_stun": return "%s%% de chance de atordoar ao acertar" % n
@@ -189,6 +225,10 @@ static func describe(effect: String, v: float, family: String = "") -> String:
 		"threat_pct": return "+%s%% de ameaça" % n
 		"backstab": return "+%s%% de dano pelas costas" % n
 		"hit_slow": return "Golpes físicos deixam %s%% de lentidão" % n
+		"storm_pct": return "+%s%% de dano de raio" % n
+		"regen_cut": return "Golpes cortam a regeneração por %s s" % n
+		"ranged_def": return "-%s%% de dano recebido de ataques à distância" % n
+		"leader_dmg": return "+%s%% de dano em líderes, elites e chefes" % n
 	return "%s %s" % [effect, n]
 
 ## Texto de um bônus de combo (dicionário de Balance.CARD_GROUP_BONUS).

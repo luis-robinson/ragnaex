@@ -1922,6 +1922,33 @@ do chefe. Tirar é grátis. Bots acham, comentam e vendem; nunca encaixam. Regra
 janela C e o Bestiário (`game/ui/card_ui.gd`; título por mapa completo, sem poder). Save: `cards`, `bestiary` (opcionais).
 Check `--only=cards`; sonda `tools/tests/card_probe.tscn`; fotos `-- --autostart=<c> --cards_shot=<pasta>`.
 
+**Ato II (2026-11-27, `design/gdd/cartas-ato2.md`)**: +37 cartas (18 comuns em 6 grupos G26-G31, 6 núcleos de monstro comum,
+13 de chefe, incluindo `war_rhino` e `iron_wolf_king`). Faixas `CARD_TIER_LEVELS = [10, 20, 30, 37]` (T4 31-37, T5 38-45; toda
+lista `CARD_COMMON`/`CARD_CORE` tem 5 valores, T1-T3 iguais). Família nova `horde` (goblins, orcs, trolls, ginetes). Ganchos novos em
+`CardSystem`: `regen_cut` (golpe corta a regeneração do troll, mesmo estado de fogo/veneno em `MobSystem.regen_blocked`),
+`ranged_def` (menos dano de monstro `ranged`, teto `CARD_FAMILY_DEF_CAP`) e `leader_dmg` (mais dano em líder com escolta, elite,
+Rei ou chefe; lista `GameData.card_leaders`). Núcleo de elite (`stat_role` elite) cai × `CARD_ELITE_ROLE_MULT` (10).
+Sonda: `card_probe.tscn -- --level=N --per_mob` (32 Costa 6,0 cartas/h, 38 Estepes 2,5, 43 Kharzun 2,8 com ×5; núcleos de elite
+22-67 h a ×5, por isso ×10; medir em grupo na cidadela e em `dg_slayers` antes de subir). Fotos `--cards_shot=<pasta> --cards_act2`.
+
+## Casa de Leilões (2026-11-27; GDD `design/gdd/casa-de-leiloes.md`) — `AuctionSystem`, `Balance.AUCTION_*`
+
+Leiloeiro (papel `Balance.AUCTION_NPC_ROLE`, `MapsCatalog.auction_npc`) em Aldara, Porto Esperança e Lumeria; um mercado só. Compra
+direta a preço fixo (sem lances); lendários e itens de quest não se vendem (`AuctionSystem.sellable`). Anunciar: prazo
+`AUCTION_DURATIONS_H` (2/8/24 h de jogo), taxa `max(1, total × AUCTION_LIST_FEE × h / 24)` paga na hora, comissão `AUCTION_CUT` (5%)
+na venda, preço por unidade até `ref × AUCTION_PLAYER_PRICE_MAX`, no máximo `AUCTION_PLAYER_LISTINGS` anúncios ativos. Item comprado,
+ouro de venda e anúncio vencido/cancelado vão para a **Caixa** (`AUCTION_MAIL_MAX`; cheia bloqueia só a compra).
+Mercado simulado (D2): a cada `AUCTION_TICK_S` o pulso gera anúncios de bots pelas tabelas de saque da faixa (assinados com nomes de
+bots reais, parte do elenco `AUCTION_ROSTER_SHARE`), gira a vitrine (`AUCTION_BOT_CHURN`) e às vezes um bot compra um anúncio do
+jogador se o preço cabe no teto dele (humor, enchente do mesmo item, orçamento `AUCTION_BOT_BUDGET_PER_LV` por hora). Nenhum ouro ou
+bolsa de bot muda. Preço de referência `AuctionSystem.ref` (loja, custo de fabricar, aprimoramento, demanda de carta); piso dos bots
+acima da venda ao mercador (`AUCTION_FLOOR_OVER_SELL`), setinha de tendência pelos últimos negócios (`AUCTION_HISTORY_N`/`TREND_PCT`).
+Interface: `game/ui/auction_ui.gd` (`AuctionUi`, aberta pelo `npc_ui` no modo `auction`): abas Comprar (busca, tipo, encaixe de
+carta, nível, páginas), Vender (quantidade, preço sugerido, prazo, taxa e total na hora), Meus anúncios, Caixa. O pulso não
+reconstrói a janela enquanto um campo de texto tem o foco (`AuctionUi.defer_refresh`; o preço digitado vale antes do Enter).
+Venda/vencimento = `Events.auction_sold/auction_expired` (aviso no HUD). Save: `market` (opcional). Check `--only=auction,auction_ui`;
+sonda `tools/tests/auction_probe.tscn`; fotos `-- --auction_shot=<pasta>`.
+
 ## Campo de Caça da Guilda (2026-11-26; GDD `design/gdd/arena-da-guilda.md`) — `ArenaSystem`, `Balance.ARENA_*`
 - Janela da Guilda (O) → aba "Campo de Caça" (`Sim.guild_hunt_field`): você + até 4 bots da guilda (sugere quem já está no seu grupo,
   tanque, cura e dano; bot fora numa encomenda do banco não entra), entradas (1 por hora de jogo, guarda 3; save sem o campo começa com 1),

@@ -295,7 +295,7 @@ static func _isolated(o: SimEntity, m: Dictionary) -> bool:
 	var cz := floori(o.position.z / 3.0)
 	for dx in range(-2, 3):
 		for dz in range(-2, 3):
-			var cell = grid.get(Vector2i(cx + dx, cz + dz))
+			var cell = grid.get(WorldSim.sep_key(cx + dx, cz + dz))
 			if cell == null:
 				continue
 			for f: SimEntity in cell:

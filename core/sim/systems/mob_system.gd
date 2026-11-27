@@ -439,10 +439,10 @@ static func place_barrage(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3
 static func update_hazards(sim: WorldSim, m: Dictionary) -> void:
 	BossSignatures.update_hazards(sim, m)
 
-## Queimando ou envenenado (F3): qualquer dano no tempo que não seja sangramento.
+## Queimando ou envenenado (F3): qualquer dano no tempo que não seja sangramento; ou carta regen_cut (cartas-ato2.md H1).
 static func regen_blocked(e: SimEntity) -> bool:
 	for d in e.debuffs:
-		if d.get("kind") == "dot" and not d.get("bleed", false):
+		if (d.get("kind") == "dot" and not d.get("bleed", false)) or d.get("kind") == CardSystem.REGEN_CUT:
 			return true
 	return false
 

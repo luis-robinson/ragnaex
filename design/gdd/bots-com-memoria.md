@@ -63,7 +63,7 @@ no chat. É o retorno social para as conquistas.
 
 `BotBrain` (pedido de socorro, ir à saída de guilda), `BotsCatalog` (falas por personalidade e por lembrança),
 `BotLeaderSystem` (saída de guilda com líder bot), `PartySystem` (lembranças de grupo), `SaveSystem` (campo novo `roster`),
-`hud` (aba Guilda no chat, etiqueta no nome), `Minimap` (marca de pedido), `momentos-do-mundo.md` (chefes de mundo).
+`hud` (aba Guilda no chat, etiqueta no nome), `Minimap` (marca de pedido), `momentos-do-mundo.md` (chefes de mundo), `casa-de-leiloes.md` (parte da vitrine é assinada pelo elenco, `AUCTION_ROSTER_SHARE`).
 
 ## 7. Tuning Knobs
 

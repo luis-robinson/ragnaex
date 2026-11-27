@@ -34,7 +34,7 @@ const FAMILY_COLOR := {
 	"beast": Color(0.72, 0.46, 0.25), "insect": Color(0.76, 0.64, 0.16), "undead": Color(0.5, 0.4, 0.64),
 	"spirit": Color(0.3, 0.62, 0.74), "humanoid": Color(0.68, 0.24, 0.24), "elf": Color(0.2, 0.58, 0.42),
 	"plant": Color(0.45, 0.6, 0.2), "construct": Color(0.44, 0.5, 0.6), "slime": Color(0.3, 0.52, 0.86),
-	"dragon": Color(0.88, 0.38, 0.14),
+	"dragon": Color(0.88, 0.38, 0.14), "horde": Color(0.42, 0.44, 0.28),
 }
 ## palavra no id ou no modelo -> família (em ordem: a 1ª que bate vence; "rot_wolf" é morto-vivo antes de ser lobo)
 const FAMILY_WORDS := [
@@ -580,6 +580,10 @@ func _ellipse(c: Vector2, rx: float, ry: float, rot: float = 0.0, n: int = 24) -
 func _emblem(fam: String, c: Vector2, s: float, bg: Color) -> void:
 	var p: Color = PARCH[0]
 	match fam:
+		"horde":                                          # presas da Horda (Ato II) sobre a mandíbula
+			_fill(_P(c, s, [-0.62, 0.5, 0.62, 0.5, 0.5, 0.86, -0.5, 0.86]), bg.lightened(0.45))
+			for sx: float in [-1.0, 1.0]:
+				_fill(_P(c, s, [sx * -0.52, 0.62, sx * -0.74, 0.12, sx * -0.6, -0.42, sx * -0.28, -0.88, sx * -0.36, -0.3, sx * -0.24, 0.24, sx * -0.18, 0.62]), p)
 		"beast":                                          # pata
 			_fill(_ellipse(c + Vector2(0, 0.32) * s, 0.46 * s, 0.38 * s), p)
 			for t in [[-0.62, -0.18], [-0.24, -0.58], [0.24, -0.58], [0.62, -0.18]]:

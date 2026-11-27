@@ -6,7 +6,10 @@ extends RefCounted
 const SEEN := 1        # bits de SimEntity.bestiary
 const FOUND := 2
 ## Ganchos que não são stat (o resto vai para card_fx["stats"], somado no Stats.compute)
-const HOOKS := ["family_dmg", "family_def", "proc_poison", "proc_slow", "proc_stun", "kill_heal", "gold_pct", "dash_pct"]     # xp_pct é stat (Poções de Caça)
+const HOOKS := ["family_dmg", "family_def", "proc_poison", "proc_slow", "proc_stun", "kill_heal", "gold_pct", "dash_pct",
+	"regen_cut", "ranged_def", "leader_dmg"]     # xp_pct é stat (Poções de Caça); os 3 últimos são do Ato II (cartas-ato2.md H1-H3)
+## Debuff do H1 (regen_cut, kind = id): MobSystem.regen_blocked o conta como fogo/veneno (F3 de ato2-horda.md)
+const REGEN_CUT := "card_regen_cut"
 
 ## --- Sorteio ---
 
@@ -33,6 +36,8 @@ static func drop_chance(sim: WorldSim, c: SimEntity, mob: SimEntity, card_id: St
 		p = Balance.CARD_CHANCE_BOSS
 	elif cd.core:
 		p = Balance.CARD_CHANCE_CORE
+		if md.stat_role == "elite":
+			p *= Balance.CARD_ELITE_ROLE_MULT          # núcleo de elite do Ato II (cartas-ato2.md, pergunta 3)
 	else:
 		p = Balance.CARD_CHANCE_COMMON
 	if md.elite_of != "":
@@ -212,16 +217,31 @@ static func family_of(e: SimEntity) -> String:
 	var mid := md.elite_of if md.elite_of != "" else md.id
 	return str(GameData.card_family.get(mid, ""))
 
-## Multiplicador de dano pela família (quem bate com family_dmg, quem apanha com family_def).
+## Líder (tem escolta), elite (stat_role "elite" ou Rei) ou chefe: alvo do H3 leader_dmg (lista GameData.card_leaders).
+static func is_leader(e: SimEntity) -> bool:
+	var md: MonsterDef = e.monster_def
+	if md == null:
+		return false
+	if GameData.card_leaders.has(md.id) or md.elite_of != "":
+		return true
+	return e.shift_base != null and GameData.card_leaders.has(e.shift_base.id)
+
+## Multiplicador de dano das cartas: quem bate com family_dmg/leader_dmg (H3), quem apanha com family_def/ranged_def (H2).
 static func damage_mult(attacker: SimEntity, target: SimEntity) -> float:
 	var k := 1.0
 	if not attacker.card_fx.is_empty() and target.monster_def != null:
 		k *= 1.0 + float(attacker.card_fx["family_dmg"].get(family_of(target), 0.0)) / 100.0
+		var ld := float(attacker.card_fx.get("leader_dmg", 0.0))
+		if ld > 0.0 and is_leader(target):
+			k *= 1.0 + ld / 100.0
 	if not target.card_fx.is_empty() and attacker.monster_def != null:
 		k *= 1.0 - minf(float(target.card_fx["family_def"].get(family_of(attacker), 0.0)), Balance.CARD_FAMILY_DEF_CAP) / 100.0
+		var rd := float(target.card_fx.get("ranged_def", 0.0))
+		if rd > 0.0 and attacker.monster_def.ranged:       # monstro à distância: básico e skill (também a chuva avisada)
+			k *= 1.0 - minf(rd, Balance.CARD_FAMILY_DEF_CAP) / 100.0
 	return k
 
-## Golpe direto que pegou: efeitos de chance (veneno, lentidão, atordoar).
+## Golpe direto que pegou: efeitos de chance (veneno, lentidão, atordoar) e o corte de regeneração (H1).
 static func on_hit(sim: WorldSim, attacker: SimEntity, target: SimEntity) -> void:
 	var fx := attacker.card_fx
 	if fx.is_empty() or not target.is_alive() or target.kind != SimEntity.Kind.MONSTER:     # sem carta (bots, monstros): sai já
@@ -233,6 +253,9 @@ static func on_hit(sim: WorldSim, attacker: SimEntity, target: SimEntity) -> voi
 		target.put_debuff({"kind": "slow", "id": "card_slow_%d" % attacker.id, "remaining": Balance.CARD_SLOW_S * target.stats.cc_mult(), "pct": Balance.CARD_SLOW_PCT})
 	if float(fx.get("proc_stun", 0.0)) > 0.0 and sim.rng.randf() * 100.0 < float(fx["proc_stun"]):
 		sim._apply_effects(attacker, target, {"stun": {"duration": Balance.CARD_STUN_S}}, 0.0)
+	var rc := float(fx.get("regen_cut", 0.0))
+	if rc > 0.0 and target.monster_def != null and target.monster_def.regen > 0.0:     # só troll (regen > 0); renova a cada golpe
+		target.put_debuff({"kind": REGEN_CUT, "id": REGEN_CUT, "remaining": rc})
 
 ## Ouro de monstro × isto (gold_pct).
 static func gold_mult(e: SimEntity) -> float:
