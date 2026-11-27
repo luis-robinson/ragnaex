@@ -251,6 +251,8 @@ func save_player(p: SimEntity) -> void:
 		if p.equipment[slot] != null:
 			eq[str(int(slot))] = p.equipment[slot].id
 	var place := ArenaSystem.save_place(Sim, p)     # dentro do Campo de Caça grava o lugar de onde entrou
+	if p.gvg_side != "" and not Sim.gvg.is_empty():
+		place = GvgSystem.save_place(Sim, p)       # Guerra de Guildas: a guerra não vai no save (volta para onde estava)
 	var data := {
 		"name": p.name, "class": p.class_def.id, "look": p.look, "level": p.level, "xp": p.xp, "gold": p.gold,
 		"hp": p.hp, "mp": p.mp, "map": place["map"], "pos": place["pos"],
@@ -273,9 +275,13 @@ func save_player(p: SimEntity) -> void:
 		data["guild"] = GuildSystem.to_save(Sim)
 	if p == Sim.player:
 		data["arena"] = ArenaSystem.to_save(Sim)       # Campo de Caça: entradas e recordes (campo opcional)
+		data["gvg"] = GvgSystem.to_save(Sim)           # Guerra de Guildas: recorde, loja (opcional; guerra no meio conta como derrota)
+		data["war_insignias"] = p.war_insignias
 		data.merge(GuildBankSystem.to_save(Sim))
 		data["world_boss"] = WorldBossSystem.to_save(Sim)     # Chefes de Mundo: relógios das faixas (campo opcional)
 		data["moments"] = ChainSystem.to_save(Sim)            # marcas de mundo das cadeias com o tempo que falta (opcional)     # Banco da Guilda: guild_bank, guild_contrib, guild_missions, guild_requests (opcionais)
+		if Sim.auction_on or not Sim.auction.is_empty():
+			data["market"] = AuctionSystem.to_save(Sim)     # Casa de Leilões (campo opcional; sem ele = mercado novo)
 	# gravação atômica: escreve o .tmp inteiro, fecha e só então renomeia por cima do save (fechar no meio não trunca o save bom)
 	var tmp := tmp_of(slot)
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
@@ -422,9 +428,12 @@ func apply_to(p: SimEntity, d: Dictionary) -> void:
 	if p == Sim.player:
 		RosterSystem.from_save(Sim, d)         # Bots com Memória: guarda o elenco para o Sim.roster_start (sem o campo = sorteia)
 		ArenaSystem.from_save(Sim, d)          # Campo de Caça: save sem o campo = ARENA_CHARGES_START entradas
+		GvgSystem.from_save(Sim, d)            # Guerra de Guildas: save sem o campo = sem recorde
+		p.war_insignias = maxi(0, int(d.get("war_insignias", 0)))
 		GuildBankSystem.from_save(Sim, d)      # Banco da Guilda (sem os campos = banco vazio; o 1º pulso dá as boas-vindas)
 		WorldBossSystem.from_save(Sim, d)      # Chefes de Mundo: save sem o campo = relógios novos
 		ChainSystem.from_save(Sim, d)          # cadeias: marcas que valiam voltam com o tempo que faltava
+		AuctionSystem.from_save(Sim, d)        # Casa de Leilões: anúncios com o tempo que falta, caixa, médias (sem o campo = mercado novo)
 	# teia de ascensão (save < 5: vazia). Nó que não existe mais: a teia volta ao início (os pontos são calculados)
 	p.asc_tree = {}
 	var atr: Dictionary = GameData.asc_trees.get(p.class_def.id, {})

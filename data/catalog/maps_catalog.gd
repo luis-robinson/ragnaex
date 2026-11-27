@@ -56,6 +56,7 @@ static func build() -> Array:
 			continue
 		out.append(_dungeon(did))
 	out.append(_guild_grounds())             # Campo de Caça da Guilda (instância só do grupo do jogador)
+	out.append(_gvg_field())                 # Guerra de Guildas: dois castelos (instância da guerra)
 	var doors := {}
 	for host in interior_hosts():
 		doors.merge(_interior_doors(load_zone(host), host))
@@ -138,6 +139,27 @@ const INTENDANTS := {
 	"field_kharzun": ["Intendente Ragna, das Caçadas", -10.0, -0.5, 90.0, ["O Rei dos Lobos de Ferro anda pelo Kharzun. A barda dele vale mais que muita espada."]],
 	"city_lumeria": ["Intendente Aurélio, das Caçadas", -80.0, 12.0, 142.0, ["Até o gamo daqui é de porcelana. Traga insígnias e eu arranjo um igual para você montar."]],
 }
+
+## Leiloeiro (casa-de-leiloes.md §3.1/D4; AuctionSystem): papel Balance.AUCTION_NPC_ROLE nas três capitais, um mercado só.
+## Posição escrita aqui, perto do mercador da praça (`trainer_probe.tscn -- --pick --anchors=...`); Lumeria: no Bairro, sem `if`
+## (existe em todos os estágios L0-L4). mapa -> [nome, x, z, facing, falas].
+const AUCTIONEER_COLOR := Color(0.86, 0.62, 0.3)
+const AUCTIONEER_LINES := ["Anuncie aqui o que não quer e compre o que os outros acharam. É um balcão só, de Aldara a Lumeria.",
+	"Vendeu? O ouro espera na minha caixa. Não vendeu no prazo? O item volta para ela. A taxa, essa fica comigo."]
+const AUCTIONEERS := {
+	"city_aldara": ["Leiloeira Benedita", 19.0, -10.75, 90.0, ["Carta repetida vale mais aqui do que no balcão do Tobias. Quase sempre."]],
+	"city_port": ["Leiloeiro Anselmo", -4.0, 9.0, 180.0, ["Tudo que chega no navio passa por mim primeiro. Quase tudo."]],
+	"city_lumeria": ["Leiloeira Madalena", -87.0, 0.0, 90.0, ["Máscara, taça, carta: em Lumeria tudo tem preço. Até o silêncio."]],
+}
+
+## O Leiloeiro do hub `map_id` (lista vazia se o mapa não tem).
+static func auction_npc(map_id: String) -> Array:
+	if not AUCTIONEERS.has(map_id):
+		return []
+	var t: Array = AUCTIONEERS[map_id]
+	var d := _npc("auction_" + map_id, t[0], float(t[1]), float(t[2]), Balance.AUCTION_NPC_ROLE, AUCTIONEER_COLOR, AUCTIONEER_LINES + (t[4] as Array), float(t[3]))
+	d["look_seed"] = 1300 + map_id.length() * 19
+	return [d]
 
 ## O Intendente das Caçadas do hub `map_id` (lista vazia se o mapa não tem).
 static func intendant_npc(map_id: String) -> Array:
@@ -2318,6 +2340,7 @@ static func _aldara() -> MapDef:
 	npcs.append_array(crystal_npc("city_aldara"))
 	npcs.append_array(trainer_npc("city_aldara"))
 	npcs.append_array(intendant_npc("city_aldara"))
+	npcs.append_array(auction_npc("city_aldara"))
 	npcs.append_array(villagers())
 	npcs.append_array(living_npcs(LIVING_NPCS["city_aldara"]))
 	npcs.append_array(festival("city_aldara"))
@@ -2606,6 +2629,7 @@ static func _port() -> MapDef:
 		d["look_seed"] = 500 + nid.length() * 11
 		npcs.append(d)
 	npcs.append_array(trainer_npc("city_port"))
+	npcs.append_array(auction_npc("city_port"))
 	npcs.append_array(festival("city_port", FESTIVAL_ACT2, VICTORY2_QUEST))   # fim do Ato II
 	for d in dawn_garrison(npc_pos, "port_g_"):           # guarnição: Balance.PORT_GUARD_POWER (vida ainda x PORT_GUARD_HP)
 		d["hp_power"] = Balance.PORT_GUARD_HP
@@ -3019,6 +3043,7 @@ static func _lumeria() -> MapDef:
 	npcs.append_array(crystal_npc("city_lumeria"))
 	npcs.append_array(trainer_npc("city_lumeria"))
 	npcs.append_array(intendant_npc("city_lumeria"))
+	npcs.append_array(auction_npc("city_lumeria"))
 	npcs.append_array(living_npcs(LIVING_NPCS["city_lumeria"]))
 	npcs.append_array(festival("city_lumeria", MANHA_LUMERIA, VICTORY3_QUEST))   # L4: Manhã em Lumeria
 	z["portals"] = (z["portals"] as Array) + _door_portals(_interior_doors(z, "city_lumeria"), "city_lumeria")   # Salão do Duque
@@ -3166,3 +3191,109 @@ static func guild_grounds_exit() -> Vector3:
 	if e is Dictionary and (e as Dictionary).has("pos"):
 		return _v3(e["pos"])
 	return _v3(GUILD_GROUNDS_EXIT)
+
+# ---------------------------------------------------------------------------
+## Guerra de Guildas (design/gdd/guerra-de-guildas.md; GvgSystem; contrato wave6 §1): ~200 × 120 m, castelo NORTE (z < 0)
+## e SUL (z > 0) espelhados pelo centro, rio leste-oeste em z 0 com pontes em x ±45 e o morro dos canhões no meio.
+## Visual do Blender (`map_gvg_field.glb` + `data/zones/gvg_field.json`); sem o JSON, blocagem só do catálogo (muralhas,
+## salão, rio). Os colisores dos portões NÃO entram no mapa: a barreira de cada portão é do GvgSystem (o lado dono passa).
+const GVG_FIELD_ID := "gvg_field"
+## Pontos do lado NORTE (o sul é o espelho -x, -z). Marcadores do JSON vencem (`markers`: SPAWN_side_N, OBJ_gate_main_N...).
+const GVG_POINTS_N := {"spawn": [0.0, -54.0], "forward": [0.0, -24.0], "gate_main": [0.0, -30.0], "gate_side": [-38.0, -40.0],
+	"crystal": [0.0, -48.0], "cannon_01": [-14.0, -33.0], "cannon_02": [14.0, -33.0], "cannon_03": [-30.0, -37.0], "cannon_04": [30.0, -37.0],
+	"ram_spawn_01": [-6.0, -18.0], "ram_spawn_02": [6.0, -18.0]}
+const GVG_HILL_CANNONS := {"cannon_hill_01": [-6.0, -4.0], "cannon_hill_02": [6.0, 4.0]}
+## Estrada dos aríetes do NORTE (contra o portão principal do SUL), um por ponte; o sul é o espelho.
+const GVG_RAM_ROUTES_N := {"ram_01": [[-6.0, -18.0], [-45.0, -8.0], [-45.0, 8.0], [-18.0, 20.0], [0.0, 26.6]],
+	"ram_02": [[6.0, -18.0], [45.0, -8.0], [45.0, 8.0], [18.0, 20.0], [0.0, 26.6]]}
+const GVG_GATE_HALF := {"main": 3.0, "side": 2.0}       # meia-largura da passagem (m)
+const GVG_ZONE_KEYS := ["size", "spawn", "obstacles", "portals", "spawners", "hangouts", "npcs", "town", "roads", "water"]
+
+static func _gvg_field() -> MapDef:
+	var d := {"id": GVG_FIELD_ID, "name": "Campo da Guerra", "is_town": false, "instance": true, "level_range": Vector2i(10, 50),
+		"size": Vector2(200, 120), "ground_color": Color(0.46, 0.58, 0.36), "ground_color_alt": Color(0.42, 0.53, 0.33),
+		"ambient": Color(0.95, 0.9, 0.84), "sun_energy": 1.1, "spawn_point": _v3(GVG_POINTS_N["spawn"]) * -1.0, "bot_population": 0}
+	var raw := gvg_field_raw()
+	if not raw.is_empty() and GVG_ZONE_KEYS.all(func(k): return raw.has(k)):
+		var z := load_zone(GVG_FIELD_ID)
+		z.erase("npc_pos")
+		z["portals"] = []                    # sair é do GvgSystem
+		z["spawners"] = []
+		z["raid"] = {}
+		z["raids"] = []
+		z["bot_hangouts"] = []
+		var gates: Array = []
+		for k in ["main_N", "side_N", "rear_N", "main_S", "side_S", "rear_S"]:     # postigo de trás: só o dono passa (barreira do GvgSystem)
+			gates.append(gvg_point("gate_" + k))
+		z["obstacles"] = (z["obstacles"] as Array).filter(func(o: Dictionary): return not gates.any(func(g: Vector3): return Vector2(o["pos"].x - g.x, o["pos"].z - g.z).length() < 1.2))
+		d.merge(z, true)
+		d["spawn_point"] = gvg_point("spawn_S")
+		return _mk(d)
+	var obs: Array = []
+	for sg in [1.0, -1.0]:                     # 1 = norte; -1 = sul (espelho)
+		for w in [[-20.5, -30.0, 35.0, 1.6], [20.5, -30.0, 35.0, 1.6], [-9.5, -42.0, 13.0, 1.2], [9.5, -42.0, 13.0, 1.2], [0.0, -51.0, 33.0, 1.2]]:
+			obs.append(_ob("wall", float(w[0]) * sg, float(w[1]) * sg, float(w[2]), 4.0, float(w[3]), C_STONE))
+		for w in [[-38.0, -34.0, 8.0], [-38.0, -51.0, 18.0], [38.0, -45.0, 30.0], [-16.0, -46.5, 9.0], [16.0, -46.5, 9.0]]:
+			obs.append(_ob("wall", float(w[0]) * sg, float(w[1]) * sg, 1.6, 4.0, float(w[2]), C_STONE))
+	for seg in [[-100.0, -48.0], [-42.0, -12.0], [12.0, 42.0], [48.0, 100.0]]:     # rio (as pontes e a ilha do morro ficam livres)
+		var x0: float = seg[0]
+		var x1: float = seg[1]
+		obs.append(_ob("rock", (x0 + x1) * 0.5, 0.0, x1 - x0, 0.6, 4.0, Color(0.3, 0.45, 0.62)))
+	for r in [[-30.0, 5.0], [30.0, -5.0], [-70.0, 18.0], [70.0, -18.0], [-66.0, -22.0], [66.0, 22.0]]:     # ruínas para se cobrir
+		obs.append(_ob("pillar", float(r[0]), float(r[1]), 2.2, 2.0, 2.2, C_RUIN))
+	d["obstacles"] = obs
+	return _mk(d)
+
+## JSON cru do campo da guerra ({} sem o arquivo).
+static var _gvg_raw: Dictionary = {}           # JSON lido uma vez (gvg_point/gate_box_of rodam na guerra: 1 leitura ≈ 6 ms)
+
+## Só leitura: o dicionário é o do cache.
+static func gvg_field_raw() -> Dictionary:
+	if not _gvg_raw.is_empty():
+		return _gvg_raw
+	if not FileAccess.file_exists(ZONE_PATH % GVG_FIELD_ID):
+		return {}
+	var v: Variant = JSON.parse_string(FileAccess.get_file_as_string(ZONE_PATH % GVG_FIELD_ID))
+	_gvg_raw = v if v is Dictionary else {}
+	return _gvg_raw
+
+## Ponto da guerra por chave "<nome>_<N|S>" (spawn_N, forward_S, gate_main_N, gate_side_S, crystal_N, cannon_N_01, ram_spawn_S_02)
+## ou "cannon_hill_01": marcador do JSON (SPAWN_side_N, SPAWN_forward_N, OBJ_gate_main_N, OBJ_cannon_N_01...) ou as constantes.
+static func gvg_point(key: String) -> Vector3:
+	var raw := gvg_field_raw()
+	var mk: Dictionary = raw.get("markers", {}) if raw.get("markers") is Dictionary else {}
+	var names := {"spawn": "SPAWN_side_", "forward": "SPAWN_forward_"}
+	var side := ""
+	var base := key
+	if key.begins_with("cannon_hill"):
+		var hn := "OBJ_" + key
+		if mk.has(hn) and mk[hn] is Dictionary and mk[hn].has("pos"):
+			return _v3(mk[hn]["pos"])
+		return _v3(GVG_HILL_CANNONS.get(key, [0.0, 0.0]))
+	for s in ["_N", "_S"]:
+		if key.ends_with(s) or key.contains(s + "_"):
+			side = s.substr(1)
+			base = key.replace(s, "")
+	var mname: String = str(names.get(base, "OBJ_" + base + "_")) + side
+	if base.begins_with("cannon_") or base.begins_with("ram_spawn_"):
+		var num := base.get_slice("_", base.get_slice_count("_") - 1)
+		mname = "OBJ_" + base.trim_suffix("_" + num) + "_" + side + "_" + num
+	if mk.has(mname) and mk[mname] is Dictionary and mk[mname].has("pos"):
+		return _v3(mk[mname]["pos"])
+	var p := _v3(GVG_POINTS_N.get(base, [0.0, 0.0]))
+	return p if side == "N" else p * -1.0
+
+## Estrada do aríete `ram_<NN>` do lado `side` (contra o portão principal do outro lado): JSON `gvg.ram_routes` ou as constantes.
+static func gvg_ram_route(side: String, ram: String) -> Array:
+	var raw := gvg_field_raw()
+	var g: Dictionary = raw.get("gvg", {}) if raw.get("gvg") is Dictionary else {}
+	var rr: Dictionary = g.get("ram_routes", {}) if g.get("ram_routes") is Dictionary else {}
+	var key := "%s_%s" % [ram, side]
+	var out: Array = []
+	if rr.get(key) is Array:
+		for pt in rr[key]:
+			out.append(_v3(pt))
+		return out
+	for pt in GVG_RAM_ROUTES_N.get(ram, []):
+		out.append(_v3(pt) * (1.0 if side == "N" else -1.0))
+	return out

@@ -931,6 +931,9 @@ BUILDERS.update(elf_props.BUILDERS)
 import life_props                      # carga no ombro e carroça dos NPCs que trabalham (tamanho real)
 importlib.reload(life_props)
 BUILDERS.update(life_props.BUILDERS)
+import gvg_props                       # Guerra de Guildas: estandarte de guilda em tamanho real (os objetos de cerco saem pelo mob_kit)
+importlib.reload(gvg_props)
+BUILDERS.update(gvg_props.PROP_BUILDERS)
 
 
 def build(kind):

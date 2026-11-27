@@ -3019,6 +3019,10 @@ def build_all(out_dir, only=None):
     import mvp_mounts
     importlib.reload(mvp_mounts)
     builders.update(mvp_mounts.BUILDERS)
+    # Guerra de Guildas (GDD guerra-de-guildas §3.4; contrato wave6 §2): aríete, canhão e Cristal do Trono, de peças rígidas (gvg_props.py)
+    import gvg_props
+    importlib.reload(gvg_props)
+    builders.update(gvg_props.BUILDERS)
     for name, fn in builders.items():
         if only and name not in only:
             continue

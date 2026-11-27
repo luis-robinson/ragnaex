@@ -413,6 +413,10 @@ static func tag_of(sim: WorldSim, entity_id: int) -> String:
 	var e: SimEntity = sim.entities.get(entity_id)
 	if e == null:
 		return ""
+	if e.gvg_side != "" and not sim.gvg.is_empty():
+		var wt := GvgSystem.tag_of(sim, e)    # Guerra de Guildas: recruta leva a etiqueta da guilda do lado
+		if wt != "":
+			return wt
 	if e == sim.player:
 		var pg: String = sim.social.get("player_guild", "")
 		return str(sim.guilds[pg]["tag"]) if pg != "" and sim.guilds.has(pg) else ""

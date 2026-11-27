@@ -30,3 +30,4 @@
 | adegas | Death Waltz | northivanastan | https://opengameart.org/content/death-waltz |
 | coro | Fantasy Choir 3 (Fantasy Choir: 3 Orchestral Pieces) | cesisco | https://opengameart.org/content/fantasy-choir-3-orchestral-pieces |
 | arena | Battle Theme A | cynicmusic | https://opengameart.org/content/battle-theme-a |
+| guerra | War Theme (reusa a faixa de kharzun; faixa própria em aberto) | Spring Spring | https://opengameart.org/content/war-theme |

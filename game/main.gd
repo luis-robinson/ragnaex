@@ -518,6 +518,7 @@ func _show_map(map_id: String) -> void:
 	map_node.add_child(GatherView.create(map_id))        # pontos de colheita (F)
 	map_node.add_child(AmbientLife.create(map_id))       # bichos de ambiente e falas soltas dos NPCs (só visual)
 	map_node.add_child(SiegeFx.create(map_id))           # fumaça e fogo do Cerco Vivo (marcadores do JSON da zona)
+	map_node.add_child(GvgWorld.create(map_id, self))    # Guerra de Guildas: portões que caem, estandartes, cano dos canhões
 	for e in Sim.map_entities(map_id):                   # o jogador na hora; o resto pela fila, os de perto já neste quadro
 		if e == Sim.player:
 			_create_view(e)

@@ -450,6 +450,9 @@ func _apply_toon_recursive(n: Node) -> void:
 				col = monster_tint(entity.monster_def, col, base.resource_name if base else "")
 			elif entity and entity.kind == SimEntity.Kind.NPC and base and base.resource_name.ends_with("_cloth"):
 				col = Color(entity.npc_data.get("color", col))       # cidadão de modelo próprio: roupa na cor dele
+			var war_tint := GvgUi.model_tint(entity, base.resource_name if base else "") if entity else Color(0, 0, 0, 0)
+			if war_tint.a > 0.0:
+				col = war_tint              # Guerra de Guildas: aríete/cristal/canhão na cor da guilda do lado
 			var glow := mob_glow(base)
 			if glow > 0.0:
 				col = glow_color(base)      # brasa/runa/olho: o tom do Blender (o import clareia), sem tingir pela variante

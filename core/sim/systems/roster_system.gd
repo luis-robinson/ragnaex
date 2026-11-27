@@ -10,7 +10,7 @@ extends RefCounted
 ## Entrada do elenco (salva): rid, name, class, build, personality, level, look, affinity, memories, rival, guild.
 ## Só em tempo de jogo: entity_id, line_at, saved_at, group_at, loot_at, greet_at.
 
-const MEMORY_KINDS := ["salvou", "grupo", "abandonou", "ajudou_pedido", "perdeu_saque", "corrida", "presente"]
+const MEMORY_KINDS := ["salvou", "grupo", "abandonou", "ajudou_pedido", "perdeu_saque", "corrida", "presente", "guerra"]
 const SAVE_KEYS := ["rid", "name", "class", "build", "personality", "level", "look", "affinity", "memories", "rival", "guild"]
 
 # ---------------------------------------------------------------------------
@@ -384,6 +384,8 @@ static func _sync(sim: WorldSim) -> void:
 		if e == null:
 			lost = lost or not GuildBankSystem.is_away(sim, int(r["rid"]))
 			continue
+		if e.gvg_side != "":
+			continue                     # na Guerra de Guildas o nível é o igualado: a entrada guarda o de verdade
 		r["level"] = e.level
 		r["build"] = e.build_id
 	if lost:

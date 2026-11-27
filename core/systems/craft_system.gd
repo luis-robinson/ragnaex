@@ -84,12 +84,16 @@ static func buy(e: SimEntity, item_id: String, count: int = 1, mult: float = 1.0
 	QuestSystem.on_item_changed(e, item_id)
 	return true
 
+## O que o mercador paga por uma unidade (Balance.MERCHANT_SELL_PCT; o piso do leilão lê daqui).
+static func sell_price(it: ItemDef) -> int:
+	return int(it.price * Balance.MERCHANT_SELL_PCT) if it != null and it.price > 0 else 0
+
 static func sell(e: SimEntity, item_id: String, count: int = 1) -> bool:
 	var it: ItemDef = GameData.items.get(item_id)
 	if it == null or count <= 0 or not e.has_item(item_id, count) or it.type == ItemDef.Type.QUEST or it.price <= 0:
 		return false
 	e.remove_item(item_id, count)
-	e.gold += int(it.price * 0.5) * count
+	e.gold += sell_price(it) * count
 	QuestSystem.on_item_changed(e, item_id)
 	UnlockSystem.on_task(e, "sell")                 # introdução da loja
 	return true

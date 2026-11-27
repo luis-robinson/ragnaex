@@ -227,7 +227,13 @@ var road_event := false              # monstro de evento de estrada (RoadEventSy
 var road_grace := false              # graça dos bots: bot de fora do grupo `road_grace_party` não o mira (nem ele ao bot)
 var road_grace_party: int = -1
 var world_boss := false              # Chefe de Mundo do evento (WorldBossSystem): prêmio por participação, não pelo abate
+var gvg_side: String = ""            # Guerra de Guildas (GvgSystem): lado "N"/"S" do combatente/objeto; "" = fora da guerra
+var gvg_obj: String = ""             # objeto de cerco: "gate" | "ram" | "cannon" | "crystal" ("" = combatente)
+var gvg_inv := false                 # objeto intocável (canhão, portão/cristal do castelo de quem ataca)
+var war_insignias: int = 0           # Insígnias de Guerra (moeda da loja de guerra, fora da bolsa)
 var dormant := false                 # monstro sem ninguém por perto: não pensa nem anda (WorldSim._dormant)
+var dorm_seen := false               # _dormant já fez a 1ª conferência (era um meta: has_meta por monstro acordado por tick)
+var spawner_ref: Dictionary = {}     # spawner que o criou (despawn marca a lista `alive` dele para refazer; {} = nenhum)
 var npc_goal: Vector3 = Vector3.ZERO  # NPC que passeia: para onde está indo
 var npc_wait: float = 0.0            # parado olhando em volta antes do próximo passo
 var npc_hold: float = 0.0            # conversando: fica parado
@@ -269,6 +275,8 @@ func is_dummy() -> bool:
 func is_hostile_to(other: SimEntity) -> bool:
 	if other == null or other == self or shade or other.shade or spirit or other.spirit:
 		return false                        # clone de sombra / espírito (Anjo Guardião): ninguém os mira nem acerta, e eles não miram ninguém
+	if gvg_side != "" and other.gvg_side != "":     # Guerra de Guildas: lados contrários; canhão/objeto intocável fora
+		return gvg_side != other.gvg_side and not gvg_inv and not other.gvg_inv and (gvg_obj == "" or other.gvg_obj == "")
 	if is_dummy() or other.is_dummy():      # boneco de treino: só contra o jogador e as invocações dele (simétrico)
 		var o: SimEntity = other if is_dummy() else self
 		return not o.is_dummy() and (o.kind == Kind.PLAYER or (o.kind == Kind.SUMMON and o.player_owned))
@@ -332,6 +340,10 @@ func is_friend(other: SimEntity) -> bool:
 		return true
 	if spirit or other.spirit:
 		return false                        # espírito: cura e buff de área não gastam alvo nele
+	if gvg_obj != "" or other.gvg_obj != "":
+		return false                        # objeto de cerco não recebe cura nem buff
+	if gvg_side != "" and other.gvg_side != "":
+		return gvg_side == other.gvg_side     # Guerra de Guildas: o lado inteiro é aliado
 	if kind == Kind.MONSTER or other.kind == Kind.MONSTER:
 		return kind == other.kind
 	if kind == Kind.NPC or other.kind == Kind.NPC:

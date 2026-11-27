@@ -81,6 +81,7 @@ var prog_t := 0.0
 var prog_at := -1.0
 var prog_anchor := Vector3.ZERO
 var lead: Dictionary = {}              # líder do grupo do jogador: recrutar e falar do plano (BotLeaderSystem; vazio = não lidera)
+var war: Dictionary = {}               # Guerra de Guildas: estado do GvgBrain (papel, objetivo, canhão); vazio = fora da guerra
 
 ## MonsterDef.id → tem skill com grito de guerra (`rally`)? Cache (os catálogos não mudam durante o jogo).
 static var _rally_cache: Dictionary = {}
@@ -111,7 +112,7 @@ func think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 		cmd.dash = false           # a própria Suprema em andamento: o dash cortaria a mira ou os saltos
 	# andando fora de combate: às vezes monta (atacar desmonta sozinho, na sim)
 	if not e.mounted and e.mount_left <= 0.0 and e.combat_timer <= 0.0 and cmd.move.length_squared() > 0.25 and not cmd.has_action() and sim.rng.randf() < Balance.BOT_MOUNT_CHANCE \
-			and m["def"].parent_map == "":
+			and m["def"].parent_map == "" and war.is_empty():
 		cmd.mount = true
 	return cmd
 
@@ -145,6 +146,10 @@ func _think(e: SimEntity, sim, m: Dictionary, dt: float) -> InputCommand:
 	if e.mp < e.stats.max_mp * 0.15 and e.potion_cds[1] <= 0.0 and _has_potion(e, 1):
 		cmd.potion_slot = 1
 		return cmd
+
+	# --- Guerra de Guildas (instância): o GvgBrain escolhe objetivo/alvo/lugar e devolve para a luta daqui ---
+	if def.instance and GvgBrain.in_war(sim, e):
+		return GvgBrain.think(sim, e, self, m, cmd, dt)
 
 	# --- grupo: quem não é líder segue o líder; o líder também cura, provoca e segura o chefe solto ---
 	if e.party_id >= 0:
@@ -464,7 +469,7 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 		engaged = false
 		return cmd
 	# pouca vida e sem poção: recua um pouco (para o líder, se houver grupo) e volta
-	if flee_timer <= 0.0 and e.hp < e.stats.max_hp * Balance.BOT_FLEE_HP and (e.potion_cd > 0.0 or not e.has_item("potion_hp_s")) and not mob.monster_def.is_boss:
+	if flee_timer <= 0.0 and e.hp < e.stats.max_hp * Balance.BOT_FLEE_HP and (e.potion_cd > 0.0 or not e.has_item("potion_hp_s")) and not (mob.monster_def != null and mob.monster_def.is_boss):
 		flee_timer = Balance.BOT_FLEE_TIME
 	if flee_timer > 0.0 and e.hp < e.stats.max_hp * 0.5:
 		var from := Vector2(e.position.x - mob.position.x, e.position.z - mob.position.z).normalized()
@@ -627,7 +632,7 @@ func _fight_core(e: SimEntity, sim, m: Dictionary, mob: SimEntity, cmd: InputCom
 			cmd.dash = true
 	cmd.move = _steer(e, spot, think_dt if unstuck_enabled else 0.0)
 	# sem chegar mais perto em BOT_CHASE_STALL s (muro, penhasco, rio no meio): larga e ignora por um tempo (chefe não)
-	if not held and not mob.monster_def.is_boss and _stalled(e, mob.id, spot):
+	if not held and not (mob.monster_def != null and mob.monster_def.is_boss) and _stalled(e, mob.id, spot):
 		_drop(mob)
 	return cmd
 
@@ -1513,8 +1518,9 @@ func _defend(e: SimEntity, sim, m: Dictionary, cmd: InputCommand, dt: float) -> 
 	var def: MapDef = m["def"]
 	if def.raid.is_empty() and def.raids.is_empty():
 		return null
-	var rs: Dictionary = sim.raid_status(e.map_id)
-	if not rs["active"] or rs["phase"] == "retreat":
+	# sem leva viva: o mesmo que o resumo diria, sem montá-lo (raid_status faz um dicionário e copia os ids a cada pensamento)
+	var rs: Dictionary = sim.raid_status(e.map_id) if RaidSystem.any_active(m) else {}
+	if rs.is_empty() or not rs["active"] or rs["phase"] == "retreat":
 		defend_wave = -1
 		falling_back = false
 		return null

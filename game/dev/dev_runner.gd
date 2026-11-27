@@ -326,7 +326,16 @@ func after_start() -> void:
 	if DevArgs.flag("--guild_shot"):    # --guild_shot=<pasta>: convite, fundar, janela O (abas), chat Guilda, socorro no minimapa, plaquinhas; sai
 		_smoke_test = false
 		_guild_shot(DevArgs.value("--guild_shot"))
-	if DevArgs.flag("--gbank_shot"):    # --gbank_shot=<pasta> [--gbank_rank=<id>]: banco da guilda (abas, encomendas, cartão de volta); sai
+	if DevArgs.flag("--gvg_shot"):      # --gvg_shot=<pasta>: Guerra de Guildas (aba Guerra, preparação, faixa com portão caindo, roda, canhão, resumo); sai
+		_smoke_test = false
+		_gvg_shot(DevArgs.value("--gvg_shot"))
+	if DevArgs.flag("--gvg_real_shot"): # --gvg_real_shot=<pasta> [--gvg_defend]: guerra DE VERDADE no gvg_field (preparação, luta, castelo S, resumo); sai
+		_smoke_test = false
+		_gvg_real_shot(DevArgs.value("--gvg_real_shot"))
+	if DevArgs.flag("--auction_shot"):  # --auction_shot=<pasta>: Leiloeiro (ícone, diálogo, abas Comprar/Vender/Meus anúncios/Caixa, aviso de venda); sai
+		_smoke_test = false
+		_auction_shot(DevArgs.value("--auction_shot"))
+	if DevArgs.flag("--gbank_shot"):    # --gbank_shot=<pasta> [--gbank_rank=<id>]: banco da guilda (abas, aviso de volta, aba Missões); sai
 		_smoke_test = false
 		_gbank_shot(DevArgs.value("--gbank_shot"))
 	if DevArgs.flag("--bot_leader_shot"):    # --bot_leader_shot=<png> [--bot_leader_wait=<s>]: bot líder completa o grupo e fala o plano; foto do chat + janela P
@@ -1497,9 +1506,267 @@ func _guild_shot(dir: String) -> void:
 	GuildUi.src = null
 	get_tree().quit()
 
+## --gvg_shot=<pasta>: UI da Guerra de Guildas com a fonte falsa GvgFake (formatos do wave6-contract §3; a sim de verdade
+## precisa do mapa gvg_field): aba Guerra (livre e bloqueada), preparação, faixa da guerra com o portão caindo e o chat do
+## campo, dica do canhão, roda de ordens, canhão operado com o anel de recarga e o resumo. Imprime GVG_SHOT.
+func _gvg_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p := Sim.player
+	var hud = main.hud
+	await get_tree().create_timer(2.0).timeout
+	Sim.sync()
+	var fake := GvgFake.new()
+	GuildUi.src = fake
+	var shot := func(n: String) -> void:
+		await get_tree().create_timer(0.5).timeout
+		get_viewport().get_texture().get_image().save_png(dir.path_join(n + ".png"))
+		print("GVG_SHOT %s" % n)
+	GuildUi.tab = "war"
+	hud.windows_script.toggle("guild")
+	await shot.call("a_aba_guerra")
+	fake.can_start = false
+	fake.why = "Espere 4 min para a próxima guerra."
+	hud.windows_script.refresh_window("guild")
+	await shot.call("a_aba_guerra_bloqueada")
+	hud.windows_script.close("guild")
+	fake.setup_war(p.id, p.name, "S", true, "prep")
+	hud.gvg_hud.refresh()
+	await shot.call("b_preparacao")
+	hud.gvg_hud.prep.find_child("role_artilharia", true, false).pressed.emit()
+	await shot.call("b_preparacao_papel")
+	fake.war["phase"] = "fight"
+	fake.war["time_left"] = 734.0
+	fake.war["gates"]["main_N"] = 0.18
+	fake.war["gates"]["side_N"] = 0.62
+	fake.war["crystal_N"] = 0.94
+	fake.war["gates"]["side_S"] = 0.8
+	for l in [["Rook", "Portão em 30%! Muro no aríete, Ponta nos canhões da esquerda!", "guild"], ["Lina", "Curando o Muro.", "guild"],
+			["Garra", "eles estão vindo pela lateral!", "war"], ["Ferrum", "segura o portão, segura!", "war"]]:
+		Events.chat_message.emit(l[0], l[1], l[2])
+	hud.gvg_hud.refresh()
+	await shot.call("c_guerra")
+	fake.war["gates"]["main_N"] = 0.0
+	hud.gvg_hud._on_gate_broken("main_N")
+	fake.add_cannon(990001, p.position + Vector3(1.5, 0, 0), "S")
+	hud.gvg_hud.refresh()
+	await shot.call("c_guerra_portao_caiu")
+	hud.gvg_hud.open_wheel()
+	hud.gvg_hud.wheel.hover = 0
+	hud.gvg_hud.wheel.queue_redraw()
+	await shot.call("d_roda")
+	hud.gvg_hud.wheel.confirm(0)
+	print("GVG_SHOT ordem=%s" % [fake.calls.back()])
+	fake.objs[0]["operator_id"] = p.id
+	fake.objs[0]["cd"] = 3.5
+	fake.war["player_commands"] = true
+	Input.warp_mouse(get_viewport().get_visible_rect().size * Vector2(0.62, 0.42))
+	hud.gvg_hud.refresh()
+	await shot.call("e_canhao")
+	fake.war["phase"] = "end"
+	hud.gvg_hud.show_summary("S", {"time": 812.0, "how": "crystal", "insignias": 60, "gold": 2400,
+		"player": {"kills": 7, "deaths": 2, "gate_dmg": 18400, "crystal_dmg": 9200, "cannon_hits": 4},
+		"comment": {"name": "Rook", "text": "Que cerco! O portão não durou nada."}})
+	await shot.call("f_resumo")
+	GuildUi.src = null
+	get_tree().quit()
+
+## --gvg_real_shot=<pasta> [--gvg_defend]: guerra de verdade (Sim.gvg_start) no mapa gvg_field, sem fonte falsa: guilda do
+## demo do banco, preparação, luta em vários tempos (paleta toon, oclusão do muro no castelo S, portões _broken escondidos)
+## e o resumo depois de sair (gvg_leave). Imprime GVG_REAL.
+func _gvg_real_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var hud = main.hud
+	await get_tree().create_timer(2.0).timeout
+	Sim.sync()
+	Sim.dev_gbank_demo(32)
+	Events.flush(Sim)
+	await get_tree().process_frame
+	if hud.guild_hud and hud.guild_hud.has_method("close_invite"):
+		hud.guild_hud.close_invite()
+	var shot := func(n: String) -> void:
+		await get_tree().create_timer(0.6).timeout
+		get_viewport().get_texture().get_image().save_png(dir.path_join(n + ".png"))
+		print("GVG_REAL %s" % n)
+	GuildUi.tab = "war"
+	hud.windows_script.toggle("guild")
+	await shot.call("a_aba_guerra_real")
+	hud.windows_script.close("guild")
+	var gw: Dictionary = Sim.guild_war()
+	var gs: Array = gw.get("guilds", [])
+	if gs.is_empty():
+		print("GVG_REAL sem guildas: %s" % gw.get("why", ""))
+		get_tree().quit()
+		return
+	var defend := DevArgs.has("--gvg_defend") or DevArgs.flag("--gvg_defend")   # `flag` só conta `--x=`: o --gvg_defend sozinho caía no ataque
+	var r := Sim.gvg_start(str(gs[0]["id"]), not defend)
+	print("GVG_REAL start=%s vs %s %s" % [r if r != "" else "ok", gs[0]["name"], "defesa" if defend else "ataque"])
+	await get_tree().create_timer(3.0).timeout
+	await shot.call("b_preparacao_real")
+	Sim.sync()
+	var st: Dictionary = Sim.gvg_status()
+	print("GVG_REAL fase=%s mapa=%s elenco=%d" % [st.get("phase", ""), Sim.player.map_id, GvgUi.roster(st, str(st.get("player_side", ""))).size()])
+	await get_tree().create_timer(Balance.GVG_PREP_S).timeout
+	await shot.call("c_luta_inicio")
+	var t0 := 0
+	for k in [20, 45, 90]:                       # s de luta em cada foto
+		await get_tree().create_timer(float(k - t0)).timeout
+		t0 = k
+		Sim.sync()
+		st = Sim.gvg_status()
+		print("GVG_REAL t=%d fase=%s portoes=%s cristais=%.2f/%.2f" % [k, st.get("phase", ""), st.get("gates", {}), float(st.get("crystal_N", 0.0)), float(st.get("crystal_S", 0.0))])
+		await shot.call("d_luta_%03d" % k)
+		hud.gvg_hud.open_wheel()
+		if k == 20:
+			await shot.call("d_roda_real")
+		hud.gvg_hud.wheel.close()
+		hud._update_blocking()
+	await _gvg_peek(shot)
+	Sim.sync()
+	Sim.gvg_leave()
+	Events.flush(Sim)
+	await get_tree().create_timer(1.0).timeout
+	await shot.call("e_resumo_real")
+	get_tree().quit()
+
+## Fotos da câmera fora do jogador (só a câmera anda): frente do castelo Norte (portão main_N) e o aríete vivo mais
+## adiantado, se houver. Imprime GVG_REAL ram com vida/distância ao portão mais perto e os golpes de aríete da guerra.
+func _gvg_peek(shot: Callable) -> void:
+	Sim.sync()
+	var objs: Array = Sim.gvg_objects()
+	var spots: Array = []                       # [nome da foto, posição]
+	var gates: Array[Vector3] = []
+	for o: Dictionary in objs:
+		var e: SimEntity = Sim.get_entity(int(o.get("id", -1)))
+		if e == null:
+			continue
+		if e.gvg_obj == "gate":
+			gates.append(e.position)
+		if str(o.get("key", "")) == "main_N":
+			spots.append(["f_frente_norte", e.position + Vector3(0, 0, 6)])
+	var ram: SimEntity = null
+	var ram_d := INF
+	for o: Dictionary in objs:
+		var e: SimEntity = Sim.get_entity(int(o.get("id", -1)))
+		if e == null or e.gvg_obj != "ram" or not e.is_alive():
+			continue
+		var d := INF
+		for g in gates:
+			d = minf(d, e.position.distance_to(g))
+		if d < ram_d:
+			ram = e
+			ram_d = d
+	var stats: Dictionary = Sim.gvg.get("stats", {})
+	if ram:
+		print("GVG_REAL ram hp=%.0f/%.0f def=%.0f gate_dist=%.1f ram_hits=%s" % [ram.hp, ram.stats.max_hp, ram.stats.pdef, ram_d, stats.get("ram_hits", "?")])
+		spots.append(["g_ariete", ram.position])
+	else:
+		print("GVG_REAL ram nenhum vivo ram_hits=%s rams_lost=%s" % [stats.get("ram_hits", "?"), Sim.gvg_status().get("score", {}).get("rams_lost", "?")])
+	var cam = main.camera
+	var keep: Node3D = cam.target
+	var mark := Node3D.new()
+	main.add_child(mark)
+	cam.target = mark
+	for sp in spots:
+		mark.global_position = sp[1]
+		await get_tree().create_timer(1.5).timeout
+		await shot.call(str(sp[0]))
+	cam.target = keep
+	mark.queue_free()
+
+## --auction_shot=<pasta> (casa-de-leiloes.md §8): mercado de verdade (pulsos do AuctionSystem), jogador nível 20 ao lado da
+## Leiloeira de Aldara com cartas/materiais/poções; a_npc (ícone de serviço), b_dialog, c_buy, d_buy_cards, e_sell, f_mine,
+## g_mail e h_notice (o aviso que a sim manda quando um bot compra). Imprime AUCTION_SHOT.
+func _auction_shot(dir: String) -> void:
+	DirAccess.make_dir_recursive_absolute(dir)
+	var p := Sim.player
+	var hud = main.hud
+	await get_tree().create_timer(2.0).timeout
+	Sim.sync()
+	var t: Array = MapsCatalog.AUCTIONEERS["city_aldara"]
+	if p.map_id != "city_aldara":
+		PortalSystem.change_map(Sim, p, "city_aldara", Vector3(float(t[1]) - 2.5, 0, float(t[2])))
+	p.position = Vector3(float(t[1]) - 2.5, 0, float(t[2]) + 1.0)
+	p.level = 20
+	p.recompute_stats()
+	p.gold = 4800
+	if not Sim.auction_on:
+		AuctionSystem.start(Sim)
+	for i in 12:                       # vitrine cheia: 12 pulsos de mercado (~24 min de jogo)
+		AuctionSystem.pulse(Sim)
+	var ids: Array = GameData.items.keys()
+	ids.sort()
+	var card := ""
+	var mats: Array = []
+	for iid in ids:
+		var it: ItemDef = GameData.items[iid]
+		if Sim.auction_sellable(iid) != "" or it.level_req > 20:
+			continue
+		if it.type == ItemDef.Type.CARD and card == "":
+			card = iid
+		elif it.type == ItemDef.Type.MATERIAL and mats.size() < 4 and it.price >= 8:
+			mats.append(iid)
+	if card != "":
+		p.add_item(card, 3)
+	for m in mats:
+		p.add_item(m, 7)
+	p.add_item("potion_hp_m", 5)
+	# dois anúncios meus, uma compra e um cancelado (a Caixa fica com 2-3 entradas)
+	for m in mats.slice(0, 2):
+		print("AUCTION_SHOT list %s: %s" % [m, Sim.auction_list(p, m, 3, Sim.auction_suggest(m), 8)])
+	var rows: Array = Sim.auction_search({"level_min": 10, "level_max": 19})
+	for r: Dictionary in rows:
+		if not r["mine"] and int(r["total"]) < p.gold / 4:
+			print("AUCTION_SHOT buy %s: %s" % [r["name"], Sim.auction_buy(p, int(r["id"]))])
+			break
+	if card != "":
+		Sim.auction_list(p, card, 1, Sim.auction_suggest(card), 2)
+		var mine: Array = Sim.auction_status(p)["listings"]
+		print("AUCTION_SHOT cancel: %s" % Sim.auction_cancel(p, int(mine[mine.size() - 1]["id"])))
+	var pulses := 0
+	while pulses < 40 and not (Sim.auction_status(p)["mail"] as Array).any(func(m: Dictionary): return m["kind"] == "gold"):
+		AuctionSystem.pulse(Sim)          # um bot compra um dos meus (venda de verdade: ouro na Caixa + aviso da sim)
+		pulses += 1
+	print("AUCTION_SHOT pulses until a sale: %d" % pulses)
+	Events.flush(Sim)
+	await get_tree().process_frame
+	var shot := func(n: String) -> void:
+		await get_tree().create_timer(0.6).timeout
+		get_viewport().get_texture().get_image().save_png(dir.path_join(n + ".png"))
+		print("AUCTION_SHOT %s" % n)
+	main.camera.distance = 11.0
+	await get_tree().create_timer(1.5).timeout
+	await shot.call("a_npc")
+	var ui = hud.npc_ui
+	ui.open("auction_city_aldara")
+	await shot.call("b_dialog")
+	ui.mode = "auction"
+	AuctionUi.f_band = -1
+	if hud.guild_hud and hud.guild_hud.has_method("close_invite"):
+		hud.guild_hud.close_invite()
+	for tb in [["buy", "c_buy"], ["card", "d_buy_cards"], ["sell", "e_sell"], ["mine", "f_mine"], ["mail", "g_mail"]]:
+		AuctionUi.msg = ""
+		if tb[0] == "card":
+			AuctionUi.tab = "buy"
+			AuctionUi.f_type = "card"
+			AuctionUi.f_band = -1
+		else:
+			AuctionUi.tab = str(tb[0])
+			AuctionUi.f_type = ""
+		if tb[0] == "sell":
+			AuctionUi.select(mats[2] if mats.size() > 2 else card)
+		ui._rebuild()
+		await shot.call(str(tb[1]))
+	ui.close()
+	var sold: Array = (Sim.auction_status(p)["mail"] as Array).filter(func(m: Dictionary): return m["kind"] == "gold")
+	Events.notification.emit("Leilão: %s (+%d ouro na caixa)" % [sold[0]["text"], int(sold[0]["gold"])] if not sold.is_empty() else "Leilão: nada vendido")
+	await shot.call("h_notice")
+	var st: Dictionary = Sim.auction_status(p)
+	print("AUCTION_SHOT ok listings=%d mine=%d mail=%d" % [Sim.auction_search().size(), (st["listings"] as Array).size(), (st["mail"] as Array).size()])
+	get_tree().quit()
+
 ## --gbank_shot=<pasta>: Banco da Guilda com a sim de verdade (Sim.dev_gbank_demo: guilda aceita, patente --gbank_rank,
-## pulsos, uma encomenda de volta e outra andando): aba Banco em cada sub-aba, Encomendas, o cartão à esquerda do
-## minimapa e a mensagem do bot. Imprime GBANK_SHOT.
+## pulsos, uma encomenda de volta e outra andando): aba Banco em cada sub-aba, o aviso à esquerda do minimapa e a aba
+## Missões que o clique nele abre. Imprime GBANK_SHOT.
 func _gbank_shot(dir: String) -> void:
 	DirAccess.make_dir_recursive_absolute(dir)
 	var p := Sim.player
@@ -1522,7 +1789,7 @@ func _gbank_shot(dir: String) -> void:
 		get_viewport().get_texture().get_image().save_png(dir.path_join(n + ".png"))
 		print("GBANK_SHOT %s" % n)
 	GuildUi.tab = "bank"
-	for sb in ["gear", "card", "material", "gold", "orders"]:
+	for sb in ["gear", "card", "material", "gold"]:
 		GuildBankUi.sub = sb
 		if hud.windows_script.is_open("guild"):
 			hud.windows_script.refresh_window("guild")
@@ -1530,13 +1797,14 @@ func _gbank_shot(dir: String) -> void:
 			hud.windows_script.toggle("guild")
 		await shot.call("a_banco_" + sb)
 	hud.windows_script.close("guild")
-	var cards: GuildMissionCards = hud.root.get_node_or_null("GuildMissionCards") if hud.get("root") else null
-	await shot.call("b_cartao")
-	if cards:
-		var ns := GuildMissionCards.notices()
-		if not ns.is_empty():
-			cards.open(int(ns[0]["id"]))
-			await shot.call("c_mensagem")
+	# aviso único à esquerda do minimapa; clique = janela da Guilda na aba Missões
+	var notice: GuildMissionNotice = hud.root.get_node_or_null("GuildMissionNotice") if hud.get("root") else null
+	await shot.call("b_aviso")
+	if notice:
+		print("GBANK_SHOT aviso=\"%s\" visivel=%s" % [notice.text_label.text, notice.panel.visible])
+		notice.open_missions()
+		await shot.call("c_missoes")
+		print("GBANK_SHOT janela=%s aba=%s" % [hud.windows_script.is_open("guild"), GuildUi.tab])
 	get_tree().quit()
 
 ## --bot_leader_shot=<png>: o bot mais perto entra no grupo do jogador e vira líder (BotLeaderSystem); espera

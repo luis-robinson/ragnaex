@@ -12,6 +12,8 @@ static func on_monster_killed(sim: WorldSim, mob: SimEntity, killer: SimEntity) 
 	if mob.road_event:                       # monstro de evento de estrada: o prêmio é do evento (sem XP, saque nem quest)
 		RoadEventSystem.on_mob_killed(sim, mob, killer)
 		return
+	if mob.gvg_side != "":                   # Guerra de Guildas: objeto de cerco não tem saque nem XP (GvgSystem.on_death)
+		return
 	if ArenaSystem.on_kill(sim, mob, killer):   # Campo de Caça: só ouro ×3, cartas e consumíveis; XP pela metade
 		return
 	# XP para quem mais bateu (grupo soma) + dono da invocação

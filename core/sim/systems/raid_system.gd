@@ -42,6 +42,15 @@ static func state(m: Dictionary, i: int = 0) -> Dictionary:
 		m[key] = {"timer": float(r.get("first", 60.0)), "n": 0, "ids": [], "t": 0.0, "arrived": false, "retreat": false}
 	return m[key]
 
+## true = alguma rota do mapa tem leva viva (o `active` de status(), sem montar o resumo; mesmas chaves criadas em `state`).
+static func any_active(m: Dictionary) -> bool:
+	var def: MapDef = m["def"]
+	var n := def.raids.size() + (0 if def.raid.is_empty() else 1)
+	for i in n:
+		if not (state(m, i)["ids"] as Array).is_empty():
+			return true
+	return false
+
 static func update_raids(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
 	var all := routes(def)

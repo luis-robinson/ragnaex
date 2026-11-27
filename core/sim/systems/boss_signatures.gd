@@ -396,6 +396,10 @@ static func update_hazards(sim: WorldSim, m: Dictionary) -> void:
 		if h.get("invert", false):
 			_land_invert(sim, m, owner, h, hz)
 			continue
+		if h.has("gvg"):                             # tiro de canhão da Guerra de Guildas (GvgSystem.land)
+			GvgSystem.land(sim, m, owner, h)
+			hz.erase(h)
+			continue
 		if h.has("hp_pct"):                          # salva do assédio (Cerco Vivo): dano em % da vida, regras do SiegeSystem
 			SiegeSystem.land(sim, m, owner, h)
 			hz.erase(h)

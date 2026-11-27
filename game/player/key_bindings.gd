@@ -32,6 +32,7 @@ const ACTIONS := [
 	["potion_2", "Poção 2", "Combate"],
 	["potion_3", "Poção 3", "Combate"],
 	["lock_target", "Travar no chefe", "Combate"],
+	["gvg_orders", "Roda de ordens (guerra)", "Combate"],
 	["interact", "Interagir / colher", "Mundo"],
 	["mount", "Montar / desmontar", "Mundo"],
 	["recall", "Voltar à cidade", "Mundo"],

@@ -2610,7 +2610,7 @@ func _check_guild_ui(gd, sim) -> void:
 	# abas: Membros, Conhecidos, Rival; Banco / Campo de Caça / Guerra só quando a sim tiver
 	var ids: Array = GuildUi.visible_tabs().map(func(t): return t[0])
 	check(ids == ["members", "known", "rival"], "guilda UI: abas Membros/Conhecidos/Rival (%s)" % [ids])
-	check(GuildUi.TABS.map(func(t): return t[0]).slice(3) == ["bank", "hunt", "war"], "guilda UI: vagas marcadas para Banco, Campo de Caça e Guerra")
+	check(GuildUi.TABS.map(func(t): return t[0]).slice(3) == ["bank", "missions", "hunt", "war"], "guilda UI: vagas marcadas para Banco, Missões, Campo de Caça e Guerra")
 	for t in ["members", "known", "rival"]:
 		GuildUi.tab = t
 		GuildUi.selected_rid = 2
@@ -2678,6 +2678,136 @@ func _check_guild_ui(gd, sim) -> void:
 	GuildUi.tab = "members"
 	GuildUi.found_name = ""
 	GuildUi.found_msg = ""
+
+## UI da Guerra de Guildas (game/ui/gvg_ui.gd, gvg_hud.gd, gvg_wheel.gd; contrato wave6 §3) com a fonte falsa GvgFake.
+func _check_gvg_ui(gd, sim) -> void:
+	var old_src: Object = GuildUi.src
+	var old_player: SimEntity = sim.player
+	var p := _unlock_player(gd, sim, "paladin", 30, true)
+	sim.player = p
+	GuildUi.src = RefCounted.new()            # sim sem a guerra: aba escondida, comandos não são da guerra
+	check(not GuildUi.visible_tabs().any(func(t): return t[0] == "war") and not GvgUi.in_war() and GvgUi.handle_command("/recuar") == null,
+		"gvg UI: sem a API a aba Guerra some e /recuar não é da guerra")
+	var fake := GvgFake.new()
+	GuildUi.src = fake
+	check(GuildUi.visible_tabs().any(func(t): return t[0] == "war"), "gvg UI: com guild_war a aba Guerra aparece")
+	var w = load("res://game/ui/windows.gd").new()
+	add_child(w)
+	GuildUi.tab = "war"
+	w.toggle("guild")
+	var panel: Control = w.wins["guild"]["panel"] if w.wins.has("guild") else null
+	var atk: Button = panel.find_child("gvg_attack_g_1", true, false) if panel else null
+	var dfd: Button = panel.find_child("gvg_defend_g_1", true, false) if panel else null
+	check(atk != null and dfd != null and panel.find_child("war_g_0", true, false) == null and panel.find_child("WarRecord", true, false) != null,
+		"gvg UI: aba Guerra lista as guildas de bots (sem a sua) com Atacar/Defender e o recorde")
+	if atk and dfd:
+		atk.pressed.emit()
+		check(fake.calls.back() == ["gvg_start", "g_1", true], "gvg UI: Atacar chama gvg_start(id, true) (%s)" % [fake.calls.back()])
+		dfd = w.wins["guild"]["panel"].find_child("gvg_defend_g_1", true, false)
+		dfd.pressed.emit()
+		check(fake.calls.back() == ["gvg_start", "g_1", false], "gvg UI: Defender chama gvg_start(id, false)")
+	fake.can_start = false
+	fake.why = "Espere 4 min."
+	GvgUi.msg = ""
+	w.refresh_window("guild")
+	panel = w.wins["guild"]["panel"]
+	var b2: Button = panel.find_child("gvg_attack_g_1", true, false)
+	var why: Label = panel.find_child("WarWhy", true, false)
+	check(b2 != null and b2.disabled and b2.tooltip_text == "Espere 4 min." and why != null and why.text == "Espere 4 min.", "gvg UI: sem poder começar os botões ficam cinza com o motivo")
+	check(GvgUi.start_button({"can_start": true}, {"why_defend": "Sem castelo."}, false) == {"disabled": true, "text": "Defender", "why": "Sem castelo."}
+		and not GvgUi.start_button({"can_start": true}, {}, true)["disabled"], "gvg UI: motivo por guilda desliga só aquele botão")
+	# comandos do chat -> ids do contrato
+	var want := {"/todos portao": "attack_gate_main", "/todos portão": "attack_gate_main", "/todos lateral": "attack_gate_side", "/recuar": "retreat",
+		"/morro": "take_hill", "/escada": "hold_stair", "/surtida": "sally", "/todos aqui": "all_to_me", "/canhoes": GvgUi.cannons_order()}
+	for k in want:
+		var c := GvgUi.parse_command(k)
+		check(c["kind"] == "order" and c["id"] == want[k], "gvg UI: %s -> ordem %s (%s)" % [k, want[k], c])
+	check(GvgUi.cannons_order() in ["man_cannons", "take_hill"], "gvg UI: /canhoes vira uma ordem que existe")
+	check(GvgUi.parse_command("/plano Pinça") == {"kind": "plan", "id": "pinca"} and GvgUi.parse_command("/plano cerco lento")["id"] == "cerco_lento"
+		and GvgUi.parse_command("/party")["kind"] == "", "gvg UI: /plano normaliza acento e espaço; /party não é da guerra")
+	var ids: Array = GvgUi.ORDERS.map(func(o): return o[0])
+	check(ids == ["attack_gate_main", "attack_gate_side", "protect_ram", "take_hill", "hold_stair", "sally", "retreat", "all_to_me"], "gvg UI: as 8 ordens do contrato")
+	check(GvgUi.handle_command("/todos portao") == null, "gvg UI: fora da guerra o comando segue para o chat normal")
+	fake.setup_war(p.id, p.name, "S", true, "prep")
+	check(GvgUi.handle_command("/todos portao") == "" and fake.calls.back() == ["gvg_order", "attack_gate_main", null], "gvg UI: /todos portao na guerra chama gvg_order")
+	GvgUi.handle_command("/plano martelo")
+	check(fake.calls.back() == ["gvg_plan", "martelo"], "gvg UI: /plano martelo chama gvg_plan")
+	# roda de ordens
+	var ev := KeyBindings.default_event("gvg_orders")
+	check(InputMap.has_action("gvg_orders") and KeyBindings.is_remappable("gvg_orders") and ev is InputEventKey and (ev as InputEventKey).physical_keycode == KEY_V,
+		"gvg UI: ação gvg_orders (V) no InputMap e na lista de teclas")
+	check(GvgUi.wheel_ids().size() == 9 and GvgUi.wheel_ids().back() == GvgUi.TAKE_COMMAND, "gvg UI: roda = 8 ordens + assumir o comando")
+	check(GvgUi.wheel_index(Vector2(0, -100), 9) == 0 and GvgUi.wheel_index(Vector2(100, 0), 9) == 2 and GvgUi.wheel_index(Vector2(4, 4), 9) == -1,
+		"gvg UI: setor da roda pelo mouse (em cima = 0, direita = 2, meio = nada)")
+	var holder := Control.new()                 # pai já com tamanho (o root do HUD): o GvgHud ocupa a tela toda
+	holder.size = Vector2(800, 600)
+	add_child(holder)
+	var sized := GvgHud.new()
+	holder.add_child(sized)
+	check(sized.size == Vector2(800, 600), "gvg UI: o HUD da guerra cobre o pai (preparação centrada) (%s)" % sized.size)
+	holder.free()
+	var hud_g := GvgHud.new()
+	add_child(hud_g)
+	hud_g.refresh()
+	check(hud_g.prep.visible and not hud_g.bar.visible and hud_g._prep_roster.get_child_count() == 12, "gvg UI: preparação com o elenco de 12 (%d)" % hud_g._prep_roster.get_child_count())
+	(hud_g.prep.find_child("role_cura", true, false) as Button).pressed.emit()
+	check(fake.calls.back() == ["gvg_pick_role", "cura"], "gvg UI: escolher papel chama gvg_pick_role")
+	hud_g.open_wheel()
+	var got: Array = []
+	hud_g.wheel.chosen.connect(func(id: String): got.append(id))
+	hud_g.wheel.confirm(GvgUi.wheel_ids().find("hold_stair"))
+	check(got.is_empty(), "gvg UI: atacante não dá ordem de defensor (Segurar a escada cinza)")
+	hud_g.open_wheel()
+	hud_g.wheel.confirm(0)
+	check(got == ["attack_gate_main"] and fake.calls.back() == ["gvg_order", "attack_gate_main", null] and not hud_g.wheel_open(), "gvg UI: roda escolhe e chama gvg_order")
+	hud_g.open_wheel()
+	hud_g.wheel.confirm(8)
+	check(fake.calls.back() == ["gvg_take_command", true], "gvg UI: roda assume o comando")
+	fake.war["phase"] = "fight"
+	fake.war["time_left"] = 734.0             # na luta o relógio é o da guerra (na preparação era o da contagem)
+	fake.war["player_commands"] = false
+	fake.war["gates"]["main_N"] = 0.0
+	hud_g.refresh()
+	check(hud_g.bar.visible and not hud_g.prep.visible and (hud_g._bar_text["main_N"] as Label).text == "Portão caiu" and (hud_g._bar_text["side_N"] as Label).text == "Lateral 100%",
+		"gvg UI: faixa da guerra com portões e cristais")
+	fake.add_cannon(990001, p.position + Vector3(1, 0, 0), "S")
+	hud_g.refresh()
+	check(hud_g.cannon_label.visible and hud_g.cannon_label.text == GvgUi.cannon_hint(true, false, 0.0), "gvg UI: perto do canhão aparece a dica de operar")
+	check(hud_g.use_cannon() == "" and fake.calls.back() == ["gvg_cannon_use", 990001], "gvg UI: F chama gvg_cannon_use(id)")
+	fake.objs[0]["operator_id"] = p.id
+	hud_g.use_cannon()
+	check(fake.calls.back() == ["gvg_cannon_leave"], "gvg UI: F operando sai do canhão")
+	# textos puros
+	var names := {1000: "Rook"}
+	var st: Dictionary = fake.war
+	check(GvgUi.clock(734.0) == "12:14" and GvgUi.timer_line(st) == "⚔ 12:14  ·  Você ataca o castelo Norte", "gvg UI: relógio (%s)" % GvgUi.timer_line(st))
+	check(GvgUi.commander_line(st, p.id, func(i): return names.get(i, "")) == "O comandante é Rook", "gvg UI: linha do comandante")
+	st["player_commands"] = true
+	check(GvgUi.commander_line(st, p.id, func(_i): return "").begins_with("Você comanda"), "gvg UI: Você comanda quando o jogador assume")
+	check(GvgUi.plan_line(st) == "Plano: Pinça — Portão principal e lateral ao mesmo tempo.", "gvg UI: linha do plano")
+	check(GvgUi.respawn_text(14.2) == "Você caiu  ·  renasce em 15 s" and GvgUi.cannon_hint(false, true, 0.0).contains("pronto"), "gvg UI: renascer e canhão pronto")
+	check(GvgHud.gate_notice("main_N", "S") == "O portão principal do castelo Norte caiu!" and GvgHud.gate_notice("gate_side_S", "S") == "O portão lateral do NOSSO castelo caiu!",
+		"gvg UI: aviso do portão caído")
+	var sl := GvgUi.summary_lines("S", {"time": 812.0, "how": "crystal", "insignias": 60, "gold": 100, "player": {"kills": 3}}, "S")
+	check(sl[0] == "VITÓRIA!" and sl.has("Tempo: 13 min 32 s") and sl.back() == "Insígnias de Guerra: +60  ·  Ouro: +100", "gvg UI: resumo (%s)" % [sl])
+	# formatos da sim de verdade (GvgSystem.status/finish): names/tags, "reason", abates por lado, papel "batedores"
+	var sr := GvgUi.summary_lines("N", {"time": 300.0, "reason": "time", "kills": {"N": 9, "S": 4}, "deaths": {"N": 4, "S": 9}, "insignias": 20, "gold": 0,
+		"stats": {"cannon_hits": 2}}, "S")
+	check(sr[0] == "DERROTA" and sr.has("O relógio acabou com o Cristal de pé.") and sr.has("Seu lado: 4 abates · 9 quedas  ·  Inimigo: 9 abates · 4 quedas")
+		and sr.has("Tiros de canhão certeiros: 2"), "gvg UI: resumo com o formato da sim (%s)" % [sr])
+	check(GvgUi.side_guild({"names": {"N": "Lobos"}, "tags": {"N": "LDF"}}, "N").get("tag", "") == "LDF" and GvgUi.side_guild({}, "N").is_empty()
+		and GvgUi.role_name("batedores") == "Batedores", "gvg UI: guilda do lado por names/tags e papel batedores da IA")
+	hud_g.show_summary("N", {"player_side": "S", "comment": {"name": "Rook", "text": "Na próxima!"}})
+	check(hud_g.summary.visible and hud_g._sum_title.text == "DERROTA" and hud_g._sum_comment.text == "[Guilda] Rook: Na próxima!", "gvg UI: resumo com o comentário da guilda")
+	check(is_equal_approx(GvgUi.frac(64), 0.64) and GvgUi.frac(0.5) == 0.5 and GvgMap.oriented([Vector2(1, 2)], "N") == [Vector2(-1, -2)], "gvg UI: % 0-100/0-1 e plano espelhado")
+	hud_g.free()
+	w.free()
+	sim.despawn(p)
+	sim.player = old_player
+	GuildUi.src = old_src
+	GuildUi.tab = "members"
+	GvgUi.msg = ""
+	GvgUi.picked_role = ""
 
 func _check_key_bindings(_sim) -> void:
 	var old_path := KeyBindings.cfg_path
@@ -3899,8 +4029,16 @@ func run_all(gd, sim, balance, save) -> void:
 	_check_key_bindings(sim)
 	_reseed(sim, "_check_guild_ui")
 	_check_guild_ui(gd, sim)
+	_reseed(sim, "_check_gvg_ui")
+	_check_gvg_ui(gd, sim)
 	_reseed(sim, "_check_arena")
 	_check_arena(gd, sim, save)
+	_reseed(sim, "_check_gvg_ai")
+	_check_gvg_ai(gd, sim, save)
+	_reseed(sim, "_check_gvg_map")
+	_check_gvg_map(gd)
+	_reseed(sim, "_check_gvg_sim")
+	_check_gvg_sim(gd, sim, save)
 	_reseed(sim, "_check_auto_potion")
 	_check_auto_potion(gd, sim, save)
 	_reseed(sim, "_check_hunt_potions")
@@ -5365,6 +5503,8 @@ func _check_combat_feel(gd, sim) -> void:
 	_check_roster(gd, sim, save_ref)
 	_check_guild_bank(gd, sim, save_ref)
 	_check_mvp(gd, sim, save_ref)
+	_check_auction(gd, sim, save_ref)
+	_check_auction_ui(gd, sim, save_ref)
 	_check_druid_attr_convert(gd)
 	_check_assassin_start_daggers(gd, sim)
 	_check_dash_nodes(gd, sim)
@@ -35935,6 +36075,39 @@ func _check_guild_bank(gd, sim, save) -> void:
 	check(rids.all(func(rid): return RosterSystem.entity_of(sim, RosterSystem.entry(sim, rid)) != null), "guild_bank: os bots voltam ao mundo")
 	var ns: Array = sim.guild_mission_notices()
 	check(ns.size() == 1 and str(ns[0]["text"]) != "" and ns[0]["item"] == target, "guild_bank: aviso de volta com a mensagem do bot (%s)" % (ns[0]["text"] if not ns.is_empty() else "-"))
+	# UI: aviso único (1 = nome, N = contagem) e clique = janela da Guilda na aba Missões
+	var old_gsrc: Object = GuildUi.src
+	GuildUi.src = sim
+	GuildMissionNotice.src = sim
+	check(GuildMissionNotice.notice_text([]) == "" and GuildMissionNotice.notice_text([{"name": "Lucan"}]) == "Lucan voltou"
+		and GuildMissionNotice.notice_text([{"name": "A"}, {"name": "B"}, {"name": "C"}]) == "3 encomendas voltaram", "guild_bank: texto do aviso (1 = nome, N = contagem)")
+	var gw = load("res://game/ui/windows.gd").new()
+	add_child(gw)
+	var gn := GuildMissionNotice.new()
+	gn.windows = gw
+	add_child(gn)
+	var ntext := "%s voltou" % str(ns[0]["name"]) if not ns.is_empty() else "?"
+	check(gn.panel.visible and gn.text_label.text == ntext, "guild_bank: aviso aparece com a encomenda que voltou (%s)" % gn.text_label.text)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	gn._on_input(click)
+	var gpanel: Control = gw.wins["guild"]["panel"] if gw.wins.has("guild") else null
+	check(gw.is_open("guild") and GuildUi.tab == "missions" and gpanel != null and gpanel.find_child("tab_missions", true, false) != null
+		and gpanel.find_child("back_%d" % mid, true, false) != null and gpanel.find_child("collect_%d" % mid, true, false) != null,
+		"guild_bank: clique no aviso abre a Guilda na aba Missões com a encomenda e Pôr na bolsa")
+	check(gpanel != null and gpanel.find_child("OrderSend", true, false) != null and gpanel.find_child("CollectAll", true, false) == null,
+		"guild_bank: aba Missões tem o formulário de mandar; Pôr tudo só com mais de uma")
+	GuildUi.tab = "bank"
+	gw.refresh_window("guild")
+	gpanel = gw.wins["guild"]["panel"] if gw.wins.has("guild") else null
+	check(gpanel != null and gpanel.find_child("bank_orders", true, false) == null and gpanel.find_child("OrderSend", true, false) == null,
+		"guild_bank: Banco ficou só com o baú e o registro")
+	gn.free()
+	gw.free()
+	GuildUi.src = old_gsrc
+	GuildMissionNotice.src = null
+	GuildUi.tab = "members"
 	sim.gbank["takes"] = 0.0
 	var have := int(pl.inventory.get(target, 0))
 	check(sim.guild_mission_collect(mid) == "" and int(pl.inventory.get(target, 0)) == have + qty and sim.guild_mission_notices().is_empty(),
@@ -35974,7 +36147,7 @@ func _check_guild_bank(gd, sim, save) -> void:
 	check(sim.gbank.is_empty(), "guild_bank: save antigo = banco vazio")
 	# UI pura
 	check(GuildBankUi.rank_text({"rank_name": "Membro", "contrib": 420, "next_contrib": 1000, "next_rank": "Veterano"}).contains("420 / 1000 para Veterano")
-		and GuildMissionCards.card_lines({"name": "Rook", "item": target, "count": 12})[0] == "Rook voltou", "guild_bank: textos da patente e do cartão")
+		and GuildMissionNotice.notice_text([{"name": "Rook", "item": target, "count": 12}]) == "Rook voltou", "guild_bank: textos da patente e do aviso")
 	# limpa
 	_roster_reset(sim, true)
 	sim.gbank.clear()
@@ -36502,3 +36675,1287 @@ func _check_chain(gd) -> void:
 	check(not WorldState.mark_on(ws, band) and not WorldState.mark_on(ws, fair) and str(ChainSystem.state(ws, "campina")["phase"]) == "idle" and phases.any(func(q): return q[1] == "aborted"),
 		"cadeia: investida cancela o passo sem marca")
 	_wb_cleanup(ws, [on_chat, on_step])
+
+## Guerra de Guildas: inteligência dos bots (GvgBrain + GvgCatalog; guerra-de-guildas.md §3.6/§8.2-8.4). Partes puras sempre;
+## as que precisam da guerra de verdade só com GvgSystem (sim.gvg_start).
+func _check_gvg_ai(gd, sim, save) -> void:
+	# --- catálogo: todo plano/ordem cobre os 5 papéis com objetivo conhecido
+	var known := ["ram", "gate_main", "gate_side", "crystal", "cannon_wall", "cannon_hill", "cannon", "hill", "stair", "wall", "sally", "hunt", "escort", "leader", "retreat"]
+	var bad: Array = []
+	for plans in [GvgCatalog.ATTACK_PLANS, GvgCatalog.DEFENSE_PLANS]:
+		for pid in plans:
+			for r in GvgCatalog.ROLES:
+				var rg := GvgCatalog.role_goal(pid, r)
+				if not known.has(str(rg.get("goal", ""))) or (rg.has("alt") and not known.has(str(rg["alt"]))):
+					bad.append("%s/%s" % [pid, r])
+			if not Balance.GVG_AI_PLAN_WEIGHTS.has(pid) or not GvgCatalog.PLAN_LINES.has(pid) or not GvgCatalog.OVERHEARD.has(pid):
+				bad.append(pid + ":dados")
+	for oid in GvgCatalog.ORDERS:
+		for r in GvgCatalog.ROLES:
+			var og := GvgCatalog.order_goal(oid, r)
+			if not og.is_empty() and not known.has(str(og.get("goal", ""))):
+				bad.append("%s/%s" % [oid, r])
+	for oid in ["attack_gate_main", "attack_gate_side", "take_hill", "protect_ram", "hold_stair", "sally", "retreat", "all_to_me"]:
+		if not GvgCatalog.ORDERS.has(oid):
+			bad.append("ordem " + oid)
+	for t: Dictionary in GvgCatalog.TRIGGERS:
+		if not GvgCatalog.TRIGGER_LINES.has(str(t["id"])):
+			bad.append("fala " + str(t["id"]))
+		for p in (t["attack"] as Array):
+			if not GvgCatalog.ATTACK_PLANS.has(p):
+				bad.append("gatilho %s -> %s" % [t["id"], p])
+		for p in (t["defense"] as Array):
+			if not GvgCatalog.DEFENSE_PLANS.has(p):
+				bad.append("gatilho %s -> %s" % [t["id"], p])
+	check(bad.is_empty(), "gvg_ai: planos, ordens e gatilhos com objetivos/falas conhecidos (%s)" % [bad])
+	# --- plano do começo pela personalidade (sorteio em grade fixa de 400 pontos)
+	var tops := {}
+	for pers in GvgCatalog.PERSONALITIES:
+		for atk in [true, false]:
+			var n := {}
+			for i in 400:
+				var p := GvgCatalog.pick_start(atk, pers, (float(i) + 0.5) / 400.0)
+				n[p] = int(n.get(p, 0)) + 1
+			var best := ""
+			for p in n:
+				if best == "" or int(n[p]) > int(n[best]):
+					best = p
+			tops["%s_%s" % [pers, "atk" if atk else "def"]] = best
+	check(tops["agressiva_atk"] == "martelo" and tops["agressiva_def"] == "surtida" and tops["defensiva_atk"] == "cerco_lento"
+		and tops["defensiva_def"] == "muralha" and tops["astuta_atk"] == "pinca", "gvg_ai: agressiva prefere Martelo/Surtida, defensiva Cerco Lento/Muralha, astuta Pinça (%s)" % [tops])
+	check(GvgCatalog.pick(["martelo", "pinca"], "agressiva", 0.0) == "martelo" and GvgCatalog.pick(["martelo", "pinca"], "agressiva", 0.99) == "pinca",
+		"gvg_ai: GvgCatalog.pick percorre os pesos em ordem")
+	# --- ritmo do chat (estado sintético: sem guerra de verdade)
+	var keep_g: Dictionary = sim.gvg.duplicate()
+	var keep_t: float = sim.time
+	sim.gvg = {"phase": "fight", "map_id": "", "attacker": "S", "player_side": "S", "time_left": 1200.0,
+		"sides": {"N": {"ids": [], "plan": "muralha", "personality": "defensiva"}, "S": {"ids": [], "plan": "martelo", "personality": "agressiva"}}}
+	var ai: Dictionary = GvgBrain._ai(sim, sim.gvg)
+	var sa: Dictionary = ai["sides"]["S"]
+	for k in 4:
+		GvgBrain._queue_line(sa, "Bot", "comum %d" % k, "guild", false)
+	GvgBrain._queue_line(sa, "Cmd", "plano!", "guild", true)
+	var t0: float = sim.time
+	while sim.time < t0 + 30.0:
+		sim.time += 0.25
+		GvgBrain._flush_chat(sim, sim.gvg, ai, "S")
+	var logl: Array = ai["log"]
+	var gaps_ok: bool = logl.size() == 3 and str(logl[0][2]) == "plano!" and float(logl[1][0]) - float(logl[0][0]) >= Balance.GVG_AI_CHAT_GAP - 0.001 		and float(logl[2][0]) - float(logl[1][0]) >= Balance.GVG_AI_CHAT_GAP - 0.001 and str(logl[1][2]) == "comum 0"
+	check(gaps_ok, "gvg_ai: chat do lado com ritmo (plano fura a fila; comuns a %.0f s; no máx. 2 comuns na fila) (%s)" % [Balance.GVG_AI_CHAT_GAP,
+		logl.map(func(x): return "%.1f %s" % [x[0], x[2]])])
+	sim.gvg = keep_g
+	sim.time = keep_t
+	if not sim.has_method("gvg_start") or not ResourceLoader.exists(GvgBrain.GVG_SYSTEM_PATH):
+		return
+	_gvg_ai_war(gd, sim, save)
+
+## Partes do _check_gvg_ai com a guerra de verdade (GvgSystem).
+func _gvg_ai_war(gd, sim, save) -> void:
+	pass
+
+## Guerra de Guildas — simulação (GvgSystem; guerra-de-guildas.md §3/§5/§8.1; contrato wave6 §1/§3/§4). `--only=gvg_sim`
+## Começar/regras de entrada, lados e hostilidade, objetos (portão, aríete, canhão, cristal), regra do portão (10% comum,
+## cerco inteiro, área × GVG_GATE_AREA_MULT) e tempo da fórmula, barreira do portão (dono passa), caminho do renascer
+## (castelo com muro: GvgSystem.waypoint), preparação presa ao renascer, renascer crescente sem perder XP, ordens/plano,
+## vitória (ouro, insígnias, lembrança "guerra", resumo com o jogador), derrota por sair, save (recorde, loja, insígnias;
+## guerra no meio = derrota) — sempre no TEST_SLOT.
+func _check_gvg_sim(gd, sim, save) -> void:
+	var pl: SimEntity = sim.player
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	var keep := {"lv": pl.level, "pos": pl.position, "map": pl.map_id, "gold": pl.gold, "xp": pl.xp, "slot": save.slot, "ins": pl.war_insignias}
+	save.slot = TEST_SLOT
+	if not sim.gvg.is_empty():
+		GvgSystem.close(sim)
+	sim.gvg_meta.clear()
+	_roster_reset(sim, true)
+	pl.level = 30
+	pl.recompute_stats()
+	pl.heal_full()
+	sim.roster_start()
+	GuildSystem.form(sim)
+	GuildSystem.respond(sim, true)
+	# --- §3.1 aba Guerra e regras de entrada
+	var gw: Dictionary = sim.guild_war()
+	var gl: Array = gw["guilds"]
+	check(not gl.is_empty() and bool(gw["can_start"]) and int(gw["record"]["wins"]) == 0 and int(gw["side_size"]) == Balance.GVG_SIDE_SIZE,
+		"gvg_sim: aba Guerra lista as guildas de bots e deixa começar (%s)" % gw["why"])
+	pl.level = Balance.GVG_MIN_LEVEL - 1
+	check(GvgSystem.start_error(sim, "") != "", "gvg_sim: abaixo do nível %d a guerra não começa" % Balance.GVG_MIN_LEVEL)
+	pl.level = 30
+	check(sim.gvg_start("g_nao_existe", true) != "" and sim.gvg.is_empty(), "gvg_sim: guilda que não é de bots não serve")
+	if gl.is_empty():
+		_gvg_sim_cleanup(sim, save, keep)
+		return
+	var enemy: String = gl[0]["id"]
+	var from_map: String = pl.map_id
+	var from_pos: Vector3 = pl.position
+	var phases: Array = []
+	var on_phase := func(p: String): phases.append(p)
+	Events.gvg_phase.connect(on_phase)
+	var err: String = sim.gvg_start(enemy, true)
+	var run: Dictionary = sim.gvg
+	check(err == "" and not run.is_empty() and pl.map_id == MapsCatalog.GVG_FIELD_ID and str(run.get("phase", "")) == "prep",
+		"gvg_sim: começar leva o jogador ao campo da guerra, em preparação (%s)" % err)
+	if run.is_empty():
+		Events.gvg_phase.disconnect(on_phase)
+		_gvg_sim_cleanup(sim, save, keep)
+		return
+	check(sim.gvg_start(enemy, true) != "", "gvg_sim: não começa duas guerras")
+	var restore: Dictionary = (run["restore"] as Dictionary).duplicate(true)
+	var ids_s: Array = run["sides"]["S"]["ids"]
+	var ids_n: Array = run["sides"]["N"]["ids"]
+	var all_ids: Array = ids_s + ids_n
+	check(ids_s.size() == Balance.GVG_SIDE_SIZE and ids_n.size() == Balance.GVG_SIDE_SIZE and str(run["attacker"]) == "S" and str(run["player_side"]) == "S"
+		and ids_s.has(pl.id), "gvg_sim: 12 × 12, o jogador no sul e o sul ataca (%d × %d)" % [ids_s.size(), ids_n.size()])
+	var bad_lv: Array = []
+	for id in all_ids:
+		var e: SimEntity = sim.entities[id]
+		if e != pl and absi(e.level - 30) > Balance.GVG_LEVEL_SPREAD:
+			bad_lv.append("%s:%d" % [e.name, e.level])
+		if e.map_id != MapsCatalog.GVG_FIELD_ID or not e.is_alive():
+			bad_lv.append(e.name + "@" + e.map_id)
+	check(bad_lv.is_empty(), "gvg_sim: todos no campo, vivos e no nível do jogador ± %d (%s)" % [Balance.GVG_LEVEL_SPREAD, bad_lv])
+	check(not restore.is_empty(), "gvg_sim: bots da guilda do jogador entram (e guardam o que eram para voltar)")
+	check(pl.position.distance_to(MapsCatalog.gvg_point("spawn_S")) <= Balance.GVG_RESPAWN_SPREAD + 1.0, "gvg_sim: a preparação começa no renascer do sul")
+	# --- objetos
+	var by_type := {}
+	for o: Dictionary in sim.gvg_objects():
+		by_type[o["type"]] = int(by_type.get(o["type"], 0)) + 1
+	check(by_type == {"gate": 4, "crystal": 2, "cannon": 10, "ram": 2}, "gvg_sim: 4 portões, 2 cristais, 10 canhões (4+4+2), 2 aríetes do atacante (%s)" % by_type)
+	var bk: Dictionary = run["by_key"]
+	var gate_n: SimEntity = sim.entities.get(int(bk["main_N"]["id"]))
+	var side_n: SimEntity = sim.entities.get(int(bk["side_N"]["id"]))
+	var gate_s: SimEntity = sim.entities.get(int(bk["main_S"]["id"]))
+	var cry_n: SimEntity = sim.entities.get(int(bk["crystal_N"]["id"]))
+	var cry_s: SimEntity = sim.entities.get(int(bk["crystal_S"]["id"]))
+	var ram: SimEntity = sim.entities.get(int(bk["ram_S_01"]["id"]))
+	var can_s: SimEntity = sim.entities.get(int(bk["cannon_S_01"]["id"]))
+	var can_h: SimEntity = sim.entities.get(int(bk["cannon_hill_01"]["id"]))
+	var ally: SimEntity = sim.entities[ids_s[1]]
+	var foe: SimEntity = sim.entities[ids_n[0]]
+	check(pl.is_friend(ally) and not pl.is_hostile_to(ally) and pl.is_hostile_to(foe) and foe.is_hostile_to(pl) and not pl.is_friend(foe),
+		"gvg_sim: o lado inteiro é aliado, o outro lado é inimigo")
+	check(pl.is_hostile_to(gate_n) and pl.is_hostile_to(cry_n) and not foe.is_hostile_to(gate_s) and not foe.is_hostile_to(cry_s)
+		and foe.is_hostile_to(ram) and not pl.is_hostile_to(ram) and not pl.is_hostile_to(can_s) and not foe.is_hostile_to(can_s)
+		and not pl.is_hostile_to(can_h) and not pl.is_friend(gate_s),
+		"gvg_sim: portão/cristal só do castelo atacado; aríete só do inimigo; canhões intocáveis; objeto não recebe cura")
+	check(absf(gate_n.monster_def.hp - Balance.GVG_GATE_HP * 30) < 1.0 and absf(side_n.monster_def.hp - Balance.GVG_GATE_HP * 30 * Balance.GVG_SIDE_GATE_MULT) < 1.0
+		and absf(cry_n.monster_def.hp - Balance.GVG_CRYSTAL_HP * 30) < 1.0 and absf(ram.monster_def.hp - Balance.GVG_RAM_HP * 30) < 1.0,
+		"gvg_sim: vida de portão/lateral/cristal/aríete = GVG_*_HP × nível")
+	check(Balance.GVG_RAM_DEF > 0.0 and absf(ram.monster_def.def - Balance.GVG_RAM_DEF * 30) < 0.01
+		and absf(ram.monster_def.mdef - Balance.GVG_RAM_DEF * 30) < 0.01 and ram.stats.pdef >= Balance.GVG_RAM_DEF * 30 - 0.01,
+		"gvg_sim: aríete tem DEF/MDEF = GVG_RAM_DEF × nível (golpe nele perde dano)")
+	# --- §4/§8.1 tempo da fórmula: um aríete sozinho ~4 min; aríete + 2 canhões ~1,5 min
+	var ram_dps := Balance.GVG_RAM_HIT * 30.0 / Balance.GVG_RAM_HIT_S
+	var can_dps := Balance.GVG_CANNON_POWER * float(run["ref_atk"]) * Balance.GVG_CANNON_SIEGE_MULT / Balance.GVG_CANNON_CD
+	var t_ram := gate_n.monster_def.hp / ram_dps
+	var t_mix := gate_n.monster_def.hp / (ram_dps + 2.0 * can_dps)
+	check(t_ram >= 200.0 and t_ram <= 280.0 and t_mix >= 60.0 and t_mix <= 120.0,
+		"gvg_sim: portão principal: aríete sozinho %.0f s (~4 min), aríete + 2 canhões %.0f s (~1,5 min; ATK ref %.0f)" % [t_ram, t_mix, float(run["ref_atk"])])
+	# --- caminho: o renascer fica atrás do castelo (muro); GvgSystem.waypoint contorna
+	var nav_bad: Array = []
+	for key in ["gate_main_N", "gate_side_N", "crystal_S", "cannon_S_01", "cannon_hill_01", "ram_spawn_S_02", "spawn_N"]:
+		if not _gvg_walks(sim, ally, MapsCatalog.gvg_point("spawn_S"), MapsCatalog.gvg_point(key), 400):
+			nav_bad.append("S->" + key)
+	for key in ["gate_main_S", "crystal_N", "cannon_N_03"]:
+		if not _gvg_walks(sim, foe, MapsCatalog.gvg_point("spawn_N"), MapsCatalog.gvg_point(key), 400):
+			nav_bad.append("N->" + key)
+	check(nav_bad.is_empty(), "gvg_sim: do renascer o caminho chega aos portões, ao próprio cristal (postigo), aos canhões e ao morro (%s)" % [nav_bad])
+	check(not _gvg_walks(sim, ally, MapsCatalog.gvg_point("spawn_S"), MapsCatalog.gvg_point("crystal_N"), 400),
+		"gvg_sim: com os portões do norte de pé o atacante não chega ao Cristal")
+	_gvg_nav_budget(sim, run, ids_s)
+	# --- preparação: cada um preso perto do renascer; nada leva dano
+	ally.position = MapsCatalog.gvg_point("spawn_S") + Vector3(Balance.GVG_PREP_RADIUS + 6.0, 0, 0)
+	GvgSystem.tick(sim, 0.1)
+	check(ally.position.distance_to(MapsCatalog.gvg_point("spawn_S")) <= Balance.GVG_PREP_RADIUS + 0.01, "gvg_sim: na preparação ninguém sai de perto do renascer")
+	var h0 := gate_n.hp
+	sim._deal_damage(pl, gate_n, 1000, false, false, "siege", null, false)
+	check(gate_n.hp == h0, "gvg_sim: na preparação os objetos não levam dano")
+	# --- luta
+	run["prep_left"] = 0.0
+	GvgSystem.tick(sim, 0.05)
+	check(str(run["phase"]) == "fight" and GvgCatalog.plan_ok(true, str(run["sides"]["S"]["plan"])) and GvgCatalog.plan_ok(false, str(run["sides"]["N"]["plan"]))
+		and phases.has("prep") and phases.has("fight"), "gvg_sim: fim da preparação = luta, com plano nos dois lados (%s/%s)" % [run["sides"]["S"]["plan"], run["sides"]["N"]["plan"]])
+	_gvg_cannon_ram(sim, run, ram, gate_n, foe, pl)
+	# --- §3.4 regra do portão
+	pl.current_skill = null
+	h0 = gate_n.hp
+	sim._deal_damage(pl, gate_n, 1000, false, false, "physical", null, false)
+	var plain := h0 - gate_n.hp
+	h0 = gate_n.hp
+	sim._deal_damage(pl, gate_n, 1000, false, false, "siege", null, false)
+	var siege := h0 - gate_n.hp
+	var area_skill: SkillDef = null
+	for s: SkillDef in gd.skills.values():
+		if s.target == SkillDef.Target.GROUND and s.radius >= Balance.GVG_AREA_RADIUS and not s.ultimate:
+			area_skill = s
+			break
+	pl.current_skill = area_skill
+	h0 = gate_n.hp
+	sim._deal_damage(pl, gate_n, 1000, false, false, "magic", null, false)
+	var area := h0 - gate_n.hp
+	pl.current_skill = null
+	check(absf(plain - 1000.0 * Balance.GVG_GATE_PLAIN_MULT) <= 1.0 and absf(siege - 1000.0) <= 1.0 and area_skill != null
+		and absf(area - 1000.0 * Balance.GVG_GATE_AREA_MULT) <= 1.0,
+		"gvg_sim: portão leva %d%% do golpe comum, cerco inteiro, área × %.2f (%.0f / %.0f / %.0f)" % [int(Balance.GVG_GATE_PLAIN_MULT * 100), Balance.GVG_GATE_AREA_MULT, plain, siege, area])
+	h0 = gate_s.hp
+	sim._deal_damage(foe, gate_s, 1000, false, false, "siege", null, false)
+	check(gate_s.hp == h0, "gvg_sim: o castelo de quem ataca não leva dano")
+	# --- barreira do portão: quem não é do castelo não passa; o dono passa
+	var gp := MapsCatalog.gvg_point("gate_main_N")
+	pl.position = gp + Vector3(0.5, 0, 0.2)
+	foe.position = gp + Vector3(-0.5, 0, 0.2)
+	GvgSystem._gates(sim, run)
+	check(absf(pl.position.z - gp.z) >= Balance.GVG_GATE_DEPTH + pl.radius - 0.01 and foe.position.distance_to(gp + Vector3(-0.5, 0, 0.2)) < 0.01,
+		"gvg_sim: portão de pé empurra o atacante para fora (z %.2f) e deixa o dono passar" % (pl.position.z - gp.z))
+	var sp := MapsCatalog.gvg_point("gate_side_N")
+	pl.position = sp + Vector3(0.3, 0, 0.3)
+	GvgSystem._gates(sim, run)
+	check(absf(pl.position.z - sp.z) >= Balance.GVG_GATE_DEPTH + pl.radius - 0.01, "gvg_sim: o portão lateral (muro leste-oeste) também barra pelo z")
+	var rp: Vector3 = GvgSystem.gate_box_of("rear_N")["c"]
+	pl.position = rp + Vector3(0.2, 0, 0.1)
+	GvgSystem._gates(sim, run)
+	check(absf(pl.position.z - rp.z) >= Balance.GVG_GATE_DEPTH + pl.radius - 0.01, "gvg_sim: o postigo de trás só deixa passar o dono")
+	# --- aríete: parado sem 3 em volta; anda com 3; bate no portão
+	var r0 := ram.position
+	for id in ids_s:
+		(sim.entities[id] as SimEntity).position = MapsCatalog.gvg_point("spawn_S")
+	GvgSystem._rams(sim, run, 1.0)
+	check(ram.position.distance_to(r0) < 0.01, "gvg_sim: aríete sem gente em volta fica parado")
+	for k in Balance.GVG_RAM_PUSHERS:
+		(sim.entities[ids_s[k + 1]] as SimEntity).position = ram.position + Vector3(1.0 + k * 0.5, 0, 1.0)
+	GvgSystem._rams(sim, run, 1.0)
+	check(ram.position.distance_to(r0) > Balance.GVG_RAM_SPEED * 0.5, "gvg_sim: com %d aliados em volta o aríete anda pela estrada" % Balance.GVG_RAM_PUSHERS)
+	var route: Array = bk["ram_S_01"]["route"]
+	check(route.size() >= 2 and (route.back() as Vector3).distance_to(gp) <= Balance.GVG_RAM_REACH + gate_n.radius + 1.0,
+		"gvg_sim: a estrada do aríete termina no portão principal inimigo")
+	var road_bad: Array = []
+	for rk in ["ram_01", "ram_02"]:
+		for s2 in ["N", "S"]:
+			var pts: Array = MapsCatalog.gvg_ram_route(s2, rk)
+			for i in range(1, pts.size()):
+				if not MapGeometry.line_walkable(sim, sim.maps[MapsCatalog.GVG_FIELD_ID], pts[i - 1], pts[i], 0.0, Balance.GVG_RAM_RADIUS * 0.5, true):
+					road_bad.append("%s_%s[%d]" % [rk, s2, i])
+	check(road_bad.is_empty(), "gvg_sim: as 4 estradas dos aríetes andam sem bater em nada (%s)" % [road_bad])
+	ram.position = gp + Vector3(0, 0, 2.5)
+	bk["ram_S_01"]["pos"] = ram.position
+	bk["ram_S_01"]["hit_t"] = 0.01
+	(sim.entities[ids_s[1]] as SimEntity).position = ram.position + Vector3(1, 0, 1)
+	h0 = gate_n.hp
+	GvgSystem._rams(sim, run, 0.1)
+	check(absf((h0 - gate_n.hp) - Balance.GVG_RAM_HIT * 30.0) <= 1.0, "gvg_sim: aríete no portão bate GVG_RAM_HIT × nível (%.0f)" % (h0 - gate_n.hp))
+	# --- canhão: operar (o primeiro fica), atirar, círculo avisado, dano em quem é do outro lado
+	var co: Dictionary = bk["cannon_S_01"]
+	pl.position = can_s.position + Vector3(1.0, 0, 0)
+	check(sim.gvg_cannon_use(can_h.id) != "", "gvg_sim: longe do canhão não opera")
+	check(sim.gvg_cannon_use(can_s.id) == "" and int(co["operator_id"]) == pl.id, "gvg_sim: perto do canhão o jogador opera (F)")
+	ally.position = can_s.position + Vector3(-1.0, 0, 0)
+	check(GvgSystem.cannon_use(sim, ally, can_s.id) != "" and int(co["operator_id"]) == pl.id, "gvg_sim: dois querem o mesmo canhão: o primeiro fica")
+	foe.position = can_s.position + Vector3(0, 0, 1.0)
+	check(GvgSystem.cannon_use(sim, foe, can_s.id) != "", "gvg_sim: canhão do outro castelo não serve")
+	var aim := can_s.position + Vector3(0, 0, -20)
+	foe.position = aim
+	foe.heal_full()
+	var ally2: SimEntity = sim.entities[ids_s[2]]
+	ally2.position = aim + Vector3(1, 0, 0)
+	ally2.heal_full()
+	var cmd := InputCommand.new()
+	cmd.aim = aim
+	cmd.attack = true
+	var shots0 := int(run["stats"]["cannon_shots"])
+	check(GvgSystem.cannon_cmd(sim, pl, cmd) and int(run["stats"]["cannon_shots"]) == shots0 + 1 and float(co["cd"]) == Balance.GVG_CANNON_CD,
+		"gvg_sim: atacar operando o canhão atira (recarga %.0f s)" % Balance.GVG_CANNON_CD)
+	GvgSystem.cannon_cmd(sim, pl, cmd)
+	check(int(run["stats"]["cannon_shots"]) == shots0 + 1, "gvg_sim: canhão em recarga não atira")
+	var m: Dictionary = sim.maps[MapsCatalog.GVG_FIELD_ID]
+	var hz: Array = (m["hazards"] as Array).filter(func(h): return h.has("gvg"))
+	check(hz.size() == 1 and absf(float(hz[0]["at"]) - sim.time - Balance.GVG_CANNON_WARN) < 0.01 and float(hz[0]["radius"]) == Balance.GVG_CANNON_RADIUS,
+		"gvg_sim: o tiro é um círculo avisado (raio %.0f m, cai em %.1f s)" % [Balance.GVG_CANNON_RADIUS, Balance.GVG_CANNON_WARN])
+	var fh := foe.hp
+	var ah := ally2.hp
+	var t_end: float = sim.time + Balance.GVG_CANNON_WARN + 0.1
+	while sim.time < t_end:
+		sim.time += 0.05
+		BossSignatures.update_hazards(sim, m)
+	check(foe.hp < fh and ally2.hp == ah and int(run["me"]["cannon_hits"]) >= 1, "gvg_sim: o tiro fere quem é do outro lado e poupa o próprio lado")
+	cmd.attack = false
+	cmd.move = Vector2(1, 0)
+	GvgSystem.cannon_cmd(sim, pl, cmd)
+	check(int(co["operator_id"]) == -1, "gvg_sim: andar larga o canhão")
+	# --- cristal regenera sem atacante perto
+	cry_n.hp = cry_n.stats.max_hp * 0.5
+	for id in ids_s:
+		(sim.entities[id] as SimEntity).position = MapsCatalog.gvg_point("spawn_S")
+	GvgSystem._crystal(sim, run, 10.0)
+	check(absf(cry_n.hp / cry_n.stats.max_hp - (0.5 + Balance.GVG_CRYSTAL_REGEN * 10.0)) < 0.001, "gvg_sim: cristal sem atacante perto regenera GVG_CRYSTAL_REGEN/s")
+	pl.position = cry_n.position + Vector3(2, 0, 0)
+	var c1 := cry_n.hp
+	GvgSystem._crystal(sim, run, 10.0)
+	check(cry_n.hp == c1, "gvg_sim: com atacante perto o cristal não regenera")
+	# --- morte: sem perder XP, fica no mapa, renasce no ponto do lado em 15 s (+5 por morte, teto 35)
+	check(GvgSystem.respawn_time(1) == Balance.GVG_RESPAWN_S and GvgSystem.respawn_time(2) == Balance.GVG_RESPAWN_S + Balance.GVG_RESPAWN_STEP
+		and GvgSystem.respawn_time(99) == Balance.GVG_RESPAWN_MAX, "gvg_sim: renascer 15 s, +5 por morte, teto 35")
+	pl.xp = 500
+	sim._kill(pl, foe)
+	check(not pl.is_alive() and pl.xp == 500 and pl.map_id == MapsCatalog.GVG_FIELD_ID and int(run["me"]["deaths"]) == 1
+		and int(run["sides"]["N"]["kills"]) >= 1, "gvg_sim: morrer na guerra não tira XP e conta no placar")
+	var t_dead: float = sim.time
+	GvgSystem._respawns(sim, run, Balance.GVG_RESPAWN_S - 0.5)
+	var early := pl.is_alive()
+	GvgSystem._respawns(sim, run, 1.0)
+	check(not early and pl.is_alive() and pl.map_id == MapsCatalog.GVG_FIELD_ID and pl.position.distance_to(MapsCatalog.gvg_point("spawn_S")) <= Balance.GVG_RESPAWN_SPREAD + 1.5,
+		"gvg_sim: renasce em %.0f s no ponto do próprio lado (não em casa)" % Balance.GVG_RESPAWN_S)
+	sim.time = maxf(sim.time, t_dead)
+	# --- ordens e plano do jogador
+	check(sim.gvg_order("attack_gate_side") == "" and str(run["sides"]["S"]["order"]["id"]) == "attack_gate_side"
+		and absf(float(run["sides"]["S"]["order"]["until"]) - sim.time - Balance.GVG_ORDER_HOLD_S) < 0.01, "gvg_sim: ordem vale GVG_ORDER_HOLD_S s")
+	check(sim.gvg_chat_command("/todos portao") == GvgSystem.ORDER_LABELS["attack_gate_main"] and str(run["sides"]["S"]["order"]["id"]) == "attack_gate_main",
+		"gvg_sim: /todos portao vira a ordem do portão principal")
+	check(sim.gvg_plan("muralha") != "" and sim.gvg_plan("pinca") == "" and bool(run["sides"]["S"]["player_commands"]) and str(run["sides"]["S"]["plan"]) == "pinca",
+		"gvg_sim: plano de defesa não serve ao atacante; escolher o plano assume o comando")
+	check(sim.gvg_pick_role("cura") == "" and str(run["me"]["role"]) == "cura" and sim.gvg_pick_role("xx") != "", "gvg_sim: gvg_pick_role guarda o papel")
+	# --- portão principal do defensor caído = renascer avançado, passagem livre, caminho até o Cristal
+	sim._deal_damage(pl, gate_n, int(gate_n.hp) + 10, false, false, "siege", null, false)
+	check(not gate_n.is_alive() and bool(run["forward"]) and (run["gates_broken"] as Dictionary).has("main_N") and int(run["me"]["gate_dmg"]) > 0,
+		"gvg_sim: portão principal caído = renascer avançado do atacante")
+	check(_gvg_walks(sim, ally, MapsCatalog.gvg_point("forward_S"), MapsCatalog.gvg_point("crystal_N"), 400), "gvg_sim: portão caído abre o caminho até o Cristal")
+	pl.position = gp + Vector3(0.3, 0, 0.2)
+	var ppos := pl.position
+	GvgSystem._gates(sim, run)
+	check(pl.position.distance_to(ppos) < 0.01, "gvg_sim: portão caído não barra ninguém")
+	# --- §3.5/§3.7 vitória: cristal quebrado
+	var fought: Array = ids_s.filter(func(id): return (sim.entities[id] as SimEntity).roster_id >= 0)
+	var mem0 := {}
+	for id in fought:
+		var r: Dictionary = RosterSystem.entry(sim, (sim.entities[id] as SimEntity).roster_id)
+		mem0[id] = (r["memories"] as Array).filter(func(x): return x["kind"] == "guerra").size()
+	var ins0 := pl.war_insignias
+	var gold0 := pl.gold
+	sim._deal_damage(pl, cry_n, int(cry_n.hp) + 10, false, false, "siege", null, false)
+	var win_gold := int(round(Balance.GVG_REWARD_GOLD * 30 * Balance.GVG_REWARD_ATTACK_BONUS))
+	var win_ins := int(round(Balance.GVG_REWARD_INSIGNIAS * Balance.GVG_REWARD_ATTACK_BONUS))
+	check(str(run["phase"]) == "end" and str(run["winner"]) == "S" and str(run["reason"]) == "crystal", "gvg_sim: cristal quebrado = vitória do atacante")
+	check(pl.gold - gold0 == win_gold and pl.war_insignias - ins0 == win_ins and int(sim.gvg_meta["wins"]) == 1
+		and bool(sim.gvg_meta["vs"][enemy]["taken"]), "gvg_sim: vitória atacando = +%d ouro, +%d insígnias, castelo deles tomado" % [win_gold, win_ins])
+	var mem_ok := not fought.is_empty()
+	for id in fought:
+		var r: Dictionary = RosterSystem.entry(sim, (sim.entities[id] as SimEntity).roster_id)
+		mem_ok = mem_ok and (r["memories"] as Array).filter(func(x): return x["kind"] == "guerra").size() == int(mem0[id]) + 1
+	check(mem_ok, "gvg_sim: bots do elenco que lutaram ganham a lembrança 'guerra' (%d)" % fought.size())
+	var sm: Dictionary = run.get("summary", {})
+	check(sm.get("player") is Dictionary and int(sm["player"]["gate_dmg"]) > 0 and int(sm["player"]["crystal_dmg"]) > 0 and int(sm["player"]["deaths"]) == 1
+		and str(sm["player"]["role"]) == "cura" and int(sm["gold"]) == win_gold, "gvg_sim: resumo com a linha do jogador (summary.player)")
+	check(not pl.is_hostile_to(foe) and not foe.is_hostile_to(pl), "gvg_sim: no fim todos ficam em trégua")
+	# fim: todos voltam; recrutas somem; bots da guilda voltam ao que eram
+	for i in int(ceil(Balance.GVG_END_S / 0.5)) + 2:
+		GvgSystem.tick(sim, 0.5)
+		if sim.gvg.is_empty():
+			break
+	check(sim.gvg.is_empty() and pl.map_id == from_map and pl.position.distance_to(from_pos) < 3.0 and pl.gvg_side == "" and not phases.is_empty() and phases.back() == "",
+		"gvg_sim: fim da trégua: o jogador volta para onde estava")
+	var back_bad: Array = []
+	for id in all_ids:
+		var e: SimEntity = sim.entities.get(id)
+		if restore.has(id):
+			var rs: Dictionary = restore[id]
+			if e == null or e.level != int(rs["level"]) or e.map_id != str(rs["map"]) or e.gvg_side != "" or not e.is_alive():
+				back_bad.append(str(id))
+		elif e != null and e != pl:
+			back_bad.append("recruta " + e.name)
+	check(back_bad.is_empty() and sim.map_entities(MapsCatalog.GVG_FIELD_ID).all(func(e: SimEntity): return e.kind != SimEntity.Kind.MONSTER),
+		"gvg_sim: bots da guilda voltam ao nível e ao lugar; recrutas e objetos somem (%s)" % [back_bad])
+	check(pl.xp == 500, "gvg_sim: a guerra inteira sem perder XP")
+	# --- derrota: defender e sair no meio
+	ins0 = pl.war_insignias
+	gold0 = pl.gold
+	err = sim.gvg_start(enemy, false)
+	check(err == "" and str(sim.gvg.get("attacker", "")) == "N" and str(sim.gvg.get("defender", "")) == "S", "gvg_sim: defender = o norte ataca o seu castelo")
+	if err == "":
+		save.save_player(pl)
+		var dw: Dictionary = save.load_data(TEST_SLOT)
+		check(str(dw.get("map", "")) == from_map and dw.get("gvg") is Dictionary and int(dw["gvg"]["losses"]) == int(sim.gvg_meta["losses"]) + 1,
+			"gvg_sim: salvar no meio da guerra grava o lugar de antes e conta derrota")
+		sim.gvg_leave()
+		check(sim.gvg.is_empty() and pl.map_id == from_map and int(sim.gvg_meta["losses"]) == 1 and pl.gold == gold0
+			and pl.war_insignias - ins0 == int(round(Balance.GVG_REWARD_INSIGNIAS * Balance.GVG_REWARD_LOSS_SHARE)), "gvg_sim: sair no meio = derrota com metade das insígnias, sem ouro")
+		check(not bool(sim.gvg_meta["vs"][enemy]["taken"]), "gvg_sim: perder a defesa devolve o castelo deles")
+	# --- loja + save de volta
+	var shop: Array = sim.gvg_shop_rows()
+	var item: Dictionary = shop[0] if not shop.is_empty() else {}
+	if not item.is_empty():
+		pl.war_insignias = int(item["price"])
+		check(sim.gvg_buy(str(item["id"])) == "" and pl.war_insignias == 0 and GvgSystem.owns(sim, str(item["id"])) and sim.gvg_buy(str(item["id"])) != "",
+			"gvg_sim: loja de guerra compra uma vez com as insígnias")
+	pl.war_insignias = 77
+	save.save_player(pl)
+	var d: Dictionary = save.load_data(TEST_SLOT)
+	check(d.get("gvg") is Dictionary and int(d["gvg"]["wins"]) == 1 and int(d["gvg"]["losses"]) == 1 and int(d.get("war_insignias", -1)) == 77
+		and (item.is_empty() or (d["gvg"]["owned"] as Array).has(item["id"])), "gvg_sim: recorde, loja e insígnias no save")
+	sim.gvg_meta.clear()
+	GvgSystem.from_save(sim, d)
+	check(int(sim.gvg_meta["wins"]) == 1 and int(sim.gvg_meta["losses"]) == 1 and (item.is_empty() or GvgSystem.owns(sim, str(item["id"])))
+		and int(((sim.gvg_meta["vs"] as Dictionary).get(enemy, {}) as Dictionary).get("wins", 0)) == 1, "gvg_sim: carregar o save devolve o recorde e a loja")
+	GvgSystem.from_save(sim, {})
+	check(int(sim.gvg_meta["wins"]) == 0 and (sim.gvg_meta["owned"] as Dictionary).is_empty(), "gvg_sim: save sem o campo = sem recorde")
+	Events.gvg_phase.disconnect(on_phase)
+	_gvg_sim_cleanup(sim, save, keep)
+
+## Mapa gvg_field (contrato wave6 §1): instância sem portal/spawner, marcadores do JSON, portões fora da colisão (são do GvgSystem).
+func _check_gvg_map(gd) -> void:
+	var md: MapDef = gd.maps.get(MapsCatalog.GVG_FIELD_ID)
+	check(md != null and md.instance and md.portals.is_empty() and md.spawners.is_empty(), "gvg_map: gvg_field é instância, sem portal nem spawner")
+	if md == null:
+		return
+	var raw := MapsCatalog.gvg_field_raw()
+	var mk: Dictionary = raw.get("markers", {})
+	var miss: Array = []
+	for s in ["N", "S"]:
+		for k in ["SPAWN_side_", "SPAWN_forward_", "OBJ_gate_main_", "OBJ_gate_side_", "OBJ_crystal_", "TRIG_exit_"]:
+			if not mk.has(k + s):
+				miss.append(k + s)
+		for i in range(1, 5):
+			if not mk.has("OBJ_cannon_%s_%02d" % [s, i]):
+				miss.append("OBJ_cannon_%s_%02d" % [s, i])
+		for i in range(1, 3):
+			if not mk.has("OBJ_ram_spawn_%s_%02d" % [s, i]):
+				miss.append("OBJ_ram_spawn_%s_%02d" % [s, i])
+			if MapsCatalog.gvg_ram_route(s, "ram_%02d" % i).size() < 2:
+				miss.append("rota ram_%02d_%s" % [i, s])
+	for i in range(1, 3):
+		if not mk.has("OBJ_cannon_hill_%02d" % i):
+			miss.append("OBJ_cannon_hill_%02d" % i)
+	check(miss.is_empty(), "gvg_map: marcadores do contrato no JSON (%s)" % [miss])
+	var mirror := MapsCatalog.gvg_point("gate_main_N").distance_to(-MapsCatalog.gvg_point("gate_main_S")) < 0.1 \
+		and MapsCatalog.gvg_point("crystal_N").distance_to(-MapsCatalog.gvg_point("crystal_S")) < 0.1 \
+		and MapsCatalog.gvg_point("spawn_N").distance_to(-MapsCatalog.gvg_point("spawn_S")) < 0.1
+	check(mirror and MapsCatalog.gvg_point("gate_main_N").z < 0.0, "gvg_map: castelos espelhados pelo centro, norte em z < 0")
+	var gate_obs: Array = md.obstacles.filter(func(o: Dictionary): return str(o.get("kind", "")) == "gate")
+	check(gate_obs.is_empty(), "gvg_map: portões (principal, lateral, postigo) fora da colisão do mapa: a barreira é do GvgSystem (%d)" % gate_obs.size())
+	check(ResourceLoader.exists("res://assets/models/%s.glb" % md.model), "gvg_map: modelo do mapa (%s)" % md.model)
+
+## Tiro de canhão (GvgSystem.land): × GVG_CANNON_SIEGE_MULT só em portão; o aríete leva o dano comum (usuário 2026-11-27).
+## Compara a vida perdida no tiro com um golpe de cerco direto do mesmo tamanho (DEF do aríete vale igual nos dois).
+func _gvg_cannon_ram(sim, run: Dictionary, ram: SimEntity, gate: SimEntity, foe: SimEntity, pl: SimEntity) -> void:
+	var m: Dictionary = sim.maps[str(run["map_id"])]
+	var dmg := 2000.0
+	var shot := func(target: SimEntity, side: String, op: SimEntity) -> int:
+		var h0 := target.hp
+		GvgSystem.land(sim, m, op, {"pos": target.position, "radius": Balance.GVG_CANNON_RADIUS, "side": side, "op": op.id, "dmg": dmg, "ram_shot": false})
+		var lost := h0 - target.hp
+		target.hp = h0
+		return lost
+	var direct := func(target: SimEntity, op: SimEntity, amount: float) -> int:
+		var h0 := target.hp
+		sim._deal_damage(op, target, int(round(amount)), false, false, "siege", target.position, false)
+		var lost := h0 - target.hp
+		target.hp = h0
+		return lost
+	var keep_pl := pl.position
+	var keep_foe := foe.position
+	pl.position = gate.position + Vector3(0, 0, 40)              # ninguém dentro do círculo além do alvo
+	foe.position = ram.position + Vector3(0, 0, -40)
+	var ram_shot: int = shot.call(ram, "N", foe)
+	var ram_plain: int = direct.call(ram, foe, dmg)
+	var ram_mult: int = direct.call(ram, foe, dmg * Balance.GVG_CANNON_SIEGE_MULT)
+	var gate_shot: int = shot.call(gate, "S", pl)
+	var gate_mult: int = direct.call(gate, pl, dmg * Balance.GVG_CANNON_SIEGE_MULT)
+	pl.position = keep_pl
+	foe.position = keep_foe
+	check(ram_shot > 0 and absi(ram_shot - ram_plain) <= maxi(2, ram_plain / 50) and ram_shot < ram_mult,
+		"gvg_sim: canhão no aríete NÃO multiplica (tiro %d = golpe comum %d; × %.0f seria %d)" % [ram_shot, ram_plain, Balance.GVG_CANNON_SIEGE_MULT, ram_mult])
+	check(gate_shot > 0 and absi(gate_shot - gate_mult) <= maxi(2, gate_mult / 50),
+		"gvg_sim: canhão no portão multiplica por GVG_CANNON_SIEGE_MULT (tiro %d, esperado %d)" % [gate_shot, gate_mult])
+
+## Orçamento dos campos de caminho (picos de 130-210 ms: até 12 BFS de ~10 ms no mesmo passo quando a luta começa): bots
+## pedindo caminhos diferentes no mesmo passo montam no máximo GVG_NAV_BUILDS_PER_TICK campos; os outros seguem em linha reta
+## e recebem o caminho nos passos seguintes; vizinhos dividem o campo (encaixe); o cache despeja o menos usado, sem zerar.
+func _gvg_nav_budget(sim, run: Dictionary, ids: Array) -> void:
+	var m: Dictionary = sim.maps[str(run["map_id"])]
+	var fields: Dictionary = m["gvg_fields"]
+	fields.clear()
+	(run.get_or_add("nav_q", []) as Array).clear()
+	(run.get_or_add("nav_qs", {}) as Dictionary).clear()
+	(run.get_or_add("nav_wp", {}) as Dictionary).clear()
+	var t0: float = sim.time
+	var bots: Array = []
+	var keep: Array = []
+	var dests: Array = ["gate_main_N", "gate_side_N", "crystal_S", "cannon_S_01", "cannon_S_03", "cannon_hill_01", "cannon_hill_02", "ram_spawn_S_02", "spawn_N", "gate_main_S"]
+	for k in mini(ids.size(), dests.size()):
+		var b: SimEntity = sim.entities[ids[k]]
+		bots.append(b)
+		keep.append(b.position)
+		b.position = MapsCatalog.gvg_point("spawn_S") + Vector3(float(k) * 0.5 - 2.0, 0.0, 0.0)
+	var b0 := int(run["stats"].get("nav_builds", 0))
+	run["nav_peak"] = 0
+	var straight := 0
+	for k in bots.size():
+		var to := MapsCatalog.gvg_point(dests[k])
+		if GvgSystem.waypoint(sim, bots[k], to) == to:
+			straight += 1
+	GvgSystem._nav_drain(sim, run)
+	var first := int(run["stats"].get("nav_builds", 0)) - b0
+	check(first <= Balance.GVG_NAV_BUILDS_PER_TICK and int(run["nav_peak"]) <= Balance.GVG_NAV_BUILDS_PER_TICK and straight >= bots.size() - 1,
+		"gvg_sim: %d bots pedindo caminhos novos no mesmo passo montam no máximo %d campo(s) (montou %d; %d seguem em linha reta)" % [
+		bots.size(), Balance.GVG_NAV_BUILDS_PER_TICK, first, straight])
+	# próximos passos: a fila anda um orçamento por passo até todos terem caminho
+	var waited := 0
+	var pending := true
+	while pending and waited < 60:
+		sim.time += 0.05
+		waited += 1
+		pending = false
+		for k in bots.size():
+			var to := MapsCatalog.gvg_point(dests[k])
+			if GvgSystem._waypoint(sim, bots[k], to, true) == Vector3.INF:     # ainda na fila (o pedido entra de novo se saiu)
+				pending = true
+		GvgSystem._nav_drain(sim, run)
+	check(not pending and int(run["nav_peak"]) <= Balance.GVG_NAV_BUILDS_PER_TICK,
+		"gvg_sim: a fila dá o caminho a todos em poucos passos sem passar do orçamento (%d passos, pico %d por passo)" % [waited, int(run["nav_peak"])])
+	# encaixe: destino a 1 m de outro usa o mesmo campo (nada novo montado)
+	var b1 := int(run["stats"].get("nav_builds", 0))
+	GvgSystem._waypoint(sim, bots[0], MapsCatalog.gvg_point("gate_main_N") + Vector3(1.0, 0.0, 0.0), false)
+	check(int(run["stats"].get("nav_builds", 0)) == b1, "gvg_sim: destino a 1 m de um já montado divide o campo (bloco de %d células)" % Balance.GVG_NAV_SNAP)
+	# LRU: cheio, sai o menos usado; os usados há pouco ficam
+	var nav: Dictionary = m["gvg_nav"]
+	var hot: String = fields.keys()[0]
+	var hot_f: PackedInt32Array = fields[hot]
+	var n0 := fields.size()
+	var parts := hot.split("|")
+	GvgSystem._nav_field(sim, m, nav, int(parts[0]), parts[1])          # usa o mais antigo: vira o mais novo
+	var added := 0
+	var cell := 0
+	var grid: PackedByteArray = nav["grid"]
+	while added < Balance.GVG_NAV_FIELDS - n0 + 3:                      # enche e passa 2 do teto
+		cell += 37
+		if cell >= grid.size():
+			break
+		if grid[cell] == 1 and not fields.has("%d|S|%d" % [cell, GvgSystem._nav_mask(sim, "S")]):
+			GvgSystem._nav_field(sim, m, nav, cell, "S")
+			added += 1
+	check(fields.size() <= Balance.GVG_NAV_FIELDS and fields.has(hot) and fields[hot] == hot_f and added > Balance.GVG_NAV_FIELDS - n0,
+		"gvg_sim: cache de campos cheio despeja o menos usado, não zera (guarda %d de %d; o usado há pouco ficou)" % [fields.size(), Balance.GVG_NAV_FIELDS])
+	for k in bots.size():
+		(bots[k] as SimEntity).position = keep[k]
+	sim.time = t0
+	(run["nav_wp"] as Dictionary).clear()
+	run["nav_peak"] = 0
+
+## `e` anda de `from` até `to` (1 m por passo) pelos pontos de GvgSystem._waypoint e pela colisão da sim? (posição restaurada)
+func _gvg_walks(sim, e: SimEntity, from: Vector3, to: Vector3, max_steps: int) -> bool:
+	var keep_pos := e.position
+	e.position = from
+	var m: Dictionary = sim.maps[e.map_id]
+	var steps := 0
+	while steps < max_steps and Vector2(e.position.x - to.x, e.position.z - to.z).length() > 2.5:
+		var wp: Vector3 = GvgSystem._waypoint(sim, e, to)
+		var dv := wp - e.position
+		dv.y = 0.0
+		if dv.length() < 0.01:
+			break
+		e.position = sim._resolve_obstacles(e.position + dv.normalized() * minf(1.0, dv.length()), Balance.ENTITY_RADIUS, m)
+		GvgSystem._gates(sim, sim.gvg)
+		steps += 1
+	var ok := Vector2(e.position.x - to.x, e.position.z - to.z).length() <= 2.5
+	e.position = keep_pos
+	return ok
+
+func _gvg_sim_cleanup(sim, save, keep: Dictionary) -> void:
+	var pl: SimEntity = sim.player
+	if not sim.gvg.is_empty():
+		GvgSystem.close(sim)
+	sim.gvg_meta.clear()
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	_roster_reset(sim, true)
+	pl.level = keep["lv"]
+	pl.gold = keep["gold"]
+	pl.xp = keep["xp"]
+	pl.war_insignias = keep["ins"]
+	pl.recompute_stats()
+	pl.heal_full()
+	if pl.map_id != keep["map"]:
+		PortalSystem.change_map(sim, pl, keep["map"], keep["pos"])
+	pl.position = keep["pos"]
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep["slot"]
+
+# ---------------------------------------------------------------------------
+## Casa de Leilões (design/gdd/casa-de-leiloes.md §8; AuctionSystem). Os 12 critérios rodam dentro deste check (os
+## sub-checks pedem `ctx`, então o --only não os chama sozinhos). `--only=auction`
+func _check_auction(gd, sim, save) -> void:
+	var pl: SimEntity = sim.player
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	var keep := {"lv": pl.level, "pos": pl.position, "gold": pl.gold, "map": pl.map_id, "inv": pl.inventory.duplicate(), "slot": save.slot,
+		"bestiary": pl.bestiary.duplicate(), "cards": pl.cards.duplicate(), "bags": pl.bags.duplicate()}
+	save.slot = TEST_SLOT
+	var ctx := {"bots": []}
+	var names := ["Leilo Ana", "Leilo Beto", "Leilo Caio", "Leilo Duda", "Leilo Eva", "Leilo Fabi", "Leilo Gil"]
+	var lvls := [3, 8, 14, 22, 33, 41, 47]
+	for i in names.size():
+		var b: SimEntity = sim.spawn_bot(gd.classes["berserker"], names[i], "city_aldara", ALDARA_FIELD + Vector3(i * 2.0, 0, 6), int(lvls[i]))
+		b.brain = null
+		(ctx["bots"] as Array).append(b)
+	_auction_fresh(sim)
+	_check_auction_sellable(gd, sim, save, ctx)
+	_check_auction_list(gd, sim, save, ctx)
+	_check_auction_buy(gd, sim, save, ctx)
+	_check_auction_mail(gd, sim, save, ctx)
+	_check_auction_expire(gd, sim, save, ctx)
+	_check_auction_bot_sale(gd, sim, save, ctx)
+	_check_auction_no_loop(gd, sim, save, ctx)
+	_check_auction_bot_listings(gd, sim, save, ctx)
+	_check_auction_d2(gd, sim, save, ctx)
+	_check_auction_save(gd, sim, save, ctx)
+	_check_auction_npc(gd, sim, save, ctx)
+	_check_auction_rng(gd, sim, save, ctx)
+	for b in ctx["bots"]:
+		sim.despawn(b)
+	sim.auction_on = false
+	sim.auction.clear()
+	pl.level = keep["lv"]
+	pl.gold = keep["gold"]
+	pl.inventory = keep["inv"]
+	pl.bestiary = keep["bestiary"]
+	pl.cards = keep["cards"]
+	pl.bags = keep["bags"]
+	pl.recompute_stats()
+	if pl.map_id != keep["map"]:
+		PortalSystem.change_map(sim, pl, keep["map"], keep["pos"])
+	pl.position = keep["pos"]
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep["slot"]
+
+## Mercado novo e ligado, jogador nível 20 ao lado da Leiloeira de Aldara com ouro.
+func _auction_fresh(sim) -> void:
+	var pl: SimEntity = sim.player
+	sim.auction_on = false
+	sim.auction.clear()
+	sim._auction_cache.clear()
+	sim.auction_rng.seed = 4242
+	if pl.map_id != "city_aldara":
+		PortalSystem.change_map(sim, pl, "city_aldara", Vector3.ZERO)
+	_auction_at_npc(sim, true)
+	pl.level = 20
+	pl.recompute_stats()
+	pl.gold = 100000
+	pl.inventory.clear()
+	AuctionSystem.start(sim)
+	sim.auction["budget"] = float(AuctionSystem.budget_max(sim))
+
+func _auction_at_npc(sim, at: bool) -> void:
+	var pl: SimEntity = sim.player
+	var t: Array = MapsCatalog.AUCTIONEERS["city_aldara"]
+	pl.position = Vector3(float(t[1]) + 1.0, 0, float(t[2])) if at else Vector3(float(t[1]) + 30.0, 0, float(t[2]))
+
+## Anúncio posto à mão (de bot ou do jogador), com o relógio de agora.
+func _auction_put(sim, item_id: String, count: int, unit: int, mine: bool, hours: float = 8.0) -> Dictionary:
+	var a: Dictionary = sim.auction
+	var l := {"id": int(a["next_id"]), "item": item_id, "count": count, "unit": unit, "seller": "Leilo Ana" if not mine else sim.player.name,
+		"rid": -1, "eid": -1, "mood": 0.0, "mine": mine, "ends": float(a["clock"]) + hours * 3600.0, "band": 0, "ref": unit}
+	a["next_id"] = int(a["next_id"]) + 1
+	(a["listings"] as Array).append(l)
+	return l
+
+func _auction_common_card(gd) -> String:
+	var ids: Array = gd.cards.keys().filter(func(c): return not gd.cards[c].core and not gd.cards[c].boss)
+	ids.sort()
+	return ids[0]
+
+func _check_auction_sellable(gd, sim, _save, _ctx: Dictionary) -> void:
+	var bad: Array = []
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		var why := AuctionSystem.sellable(it)
+		var legend := it.is_legendary() or it.set_id != "" or not it.legend_effect.is_empty() or not it.piece_fx.is_empty()
+		if it.base_id != "" and gd.items.has(it.base_id):
+			var b: ItemDef = gd.items[it.base_id]
+			legend = legend or b.is_legendary() or b.set_id != "" or not b.legend_effect.is_empty() or not b.piece_fx.is_empty()
+		var want_refuse := legend or it.type == ItemDef.Type.QUEST or it.price <= 0
+		if want_refuse == (why == "") or (legend and why != AuctionSystem.LEGEND_TEXT):
+			bad.append("%s:%s" % [iid, why])
+	check(bad.is_empty(), "auction: sellable recusa lendário/conjunto/quest/sem preço e deixa o resto (%s)" % [bad.slice(0, 6)])
+	var leg: Array = gd.items.keys().filter(func(i): return gd.items[i].is_legendary() and gd.items[i].is_equipment() and gd.items[i].base_id == "")
+	leg.sort()
+	var plus_leg: ItemDef = gd.plus_item(gd.items[leg[0]], 3)
+	var pool: Array = LootSystem.gear_pool(sim, 1)
+	var plus_c: ItemDef = gd.plus_item(pool[0], 3)
+	check(AuctionSystem.sellable(plus_leg) == AuctionSystem.LEGEND_TEXT and AuctionSystem.sellable(plus_c) == "" and AuctionSystem.sellable(pool[0]) == "",
+		"auction: +N de lendário recusa, equipamento comum e o +N dele passam")
+	var core: Array = gd.cards.keys().filter(func(c): return gd.cards[c].core)
+	check(AuctionSystem.sellable(gd.items[_auction_common_card(gd)]) == "" and not core.is_empty() and AuctionSystem.sellable(gd.items[core[0]]) == "",
+		"auction: carta comum e de núcleo passam")
+	var pots := 0
+	for k in HuntPotionSystem.KINDS:
+		for g in Balance.HUNT_POTION_GRADES.size():
+			var pid := HuntPotionSystem.item_id(k, g)
+			if gd.items.has(pid) and AuctionSystem.sellable(gd.items[pid]) == "":
+				pots += 1
+	check(pots == 6, "auction: as 6 Poções de Caça passam (%d)" % pots)
+	check(AuctionSystem.sellable(gd.items["slime_gel"]) == "" and AuctionSystem.sellable(gd.items["legend_coin"]) != "", "auction: material passa, Moeda Lendária (sem preço) não")
+
+func _check_auction_list(gd, sim, _save, _ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	var pl: SimEntity = sim.player
+	var cc := _auction_common_card(gd)
+	pl.add_item(cc, 3)
+	var g0 := pl.gold
+	var err: String = sim.auction_list(pl, cc, 1, 30, 8)
+	check(err == "" and int(pl.inventory.get(cc, 0)) == 2 and pl.gold == g0 - 1 and AuctionSystem.mine_count(sim) == 1,
+		"auction: anunciar 1 carta a 30 por 8 h tira da bolsa e cobra 1 de taxa (%s, ouro %d)" % [err, g0 - pl.gold])
+	check(AuctionSystem.fee(24, 1000) == 10 and AuctionSystem.fee(2, 30) == 1, "auction: taxa = max(1, total × 1%% × h/24)")
+	var it: ItemDef = gd.items[cc]
+	var rg := AuctionSystem.price_range(sim, it)
+	check(sim.auction_list(pl, cc, 1, CraftSystem.sell_price(it) - 1, 8) == "O mercador paga mais que isso", "auction: preço abaixo do mercador recusa")
+	check(sim.auction_list(pl, cc, 1, rg.y + 1, 8) == "Preço alto demais", "auction: preço acima de ref × MAX recusa")
+	check(sim.auction_list(pl, cc, 3, 30, 8) == "Você não tem tantos.", "auction: quantidade acima da bolsa recusa")
+	check(sim.auction_list(pl, cc, 1, 30, 5) == "Prazo inválido.", "auction: prazo fora de 2/8/24 recusa")
+	var gold := pl.gold
+	pl.gold = 0
+	check(sim.auction_list(pl, cc, 1, 30, 8) == "Ouro insuficiente para a taxa" and int(pl.inventory.get(cc, 0)) == 2, "auction: sem ouro para a taxa recusa e nada sai da bolsa")
+	pl.gold = gold
+	_auction_at_npc(sim, false)
+	check(sim.auction_list(pl, cc, 1, 30, 8) == AuctionSystem.NEAR_TEXT, "auction: longe do Leiloeiro recusa")
+	_auction_at_npc(sim, true)
+	# equipado / encaixado
+	var w: ItemDef = pl.equipment.get(ItemDef.Slot.WEAPON)
+	if w != null and not pl.inventory.has(w.id) and AuctionSystem.sellable(w) == "":
+		check(sim.auction_list(pl, w.id, 1, maxi(1, CraftSystem.sell_price(w)), 8) == "Tire do encaixe/boneco primeiro", "auction: arma vestida recusa")
+	var cc2: String = gd.cards.keys().filter(func(c): return c != cc and not gd.cards[c].core)[0]
+	pl.cards["weapon"] = cc2
+	check(sim.auction_list(pl, cc2, 1, 30, 8) == "Tire do encaixe/boneco primeiro", "auction: carta encaixada recusa")
+	pl.cards.erase("weapon")
+	# limite de anúncios
+	pl.add_item("slime_gel", 50)
+	var sg: ItemDef = gd.items["slime_gel"]
+	var unit := maxi(1, CraftSystem.sell_price(sg))
+	while AuctionSystem.mine_count(sim) < Balance.AUCTION_PLAYER_LISTINGS:
+		if sim.auction_list(pl, "slime_gel", 1, unit, 2) != "":
+			break
+	check(AuctionSystem.mine_count(sim) == Balance.AUCTION_PLAYER_LISTINGS, "auction: anuncia até o limite")
+	check(sim.auction_list(pl, "slime_gel", 1, unit, 2) == "Você já tem %d anúncios" % Balance.AUCTION_PLAYER_LISTINGS, "auction: acima do limite de anúncios recusa")
+
+func _check_auction_buy(gd, sim, _save, _ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	var pl: SimEntity = sim.player
+	var cc := _auction_common_card(gd)
+	var l := _auction_put(sim, cc, 1, 40, false)
+	var g0 := pl.gold
+	check(sim.auction_buy(pl, int(l["id"])) == "" and pl.gold == g0 - 40 and not pl.inventory.has(cc) and (sim.auction["mail"] as Array).size() == 1
+		and str(sim.auction["mail"][0]["item"]) == cc and AuctionSystem.find(sim, int(l["id"])).is_empty(), "auction: comprar tira o ouro e põe o item na caixa (não na bolsa)")
+	check(sim.auction_buy(pl, int(l["id"])) == AuctionSystem.GONE_TEXT, "auction: anúncio que sumiu recusa")
+	var l2 := _auction_put(sim, cc, 1, 40, false)
+	pl.gold = 39
+	check(sim.auction_buy(pl, int(l2["id"])) == "Ouro insuficiente" and pl.gold == 39, "auction: ouro insuficiente recusa e nada muda")
+	pl.gold = 100000
+	var mine := _auction_put(sim, cc, 1, 40, true)
+	check(sim.auction_buy(pl, int(mine["id"])) == "Este anúncio é seu", "auction: o próprio anúncio não se compra")
+	check(sim.auction_search({"mine": true}).size() == 1 and bool(sim.auction_search({"mine": true})[0]["mine"]), "auction: a busca marca o seu anúncio")
+	_auction_at_npc(sim, false)
+	check(sim.auction_buy(pl, int(l2["id"])) == AuctionSystem.NEAR_TEXT, "auction: fora de um Leiloeiro recusa")
+	_auction_at_npc(sim, true)
+	while (sim.auction["mail"] as Array).size() < Balance.AUCTION_MAIL_MAX:
+		AuctionSystem._mail_gold(sim, 1, "teste")
+	check(sim.auction_buy(pl, int(l2["id"])) == "Esvazie a caixa do Leiloeiro" and not AuctionSystem.find(sim, int(l2["id"])).is_empty(), "auction: caixa cheia recusa a compra")
+	var rows: Array = sim.auction_search({"type": "card"})
+	check(rows.size() >= 2 and rows.all(func(r): return gd.items[r["item"]].type == ItemDef.Type.CARD), "auction: filtro por tipo")
+
+func _check_auction_mail(gd, sim, _save, _ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	var pl: SimEntity = sim.player
+	var ids: Array = gd.items.keys().filter(func(i): return gd.items[i].type == ItemDef.Type.MATERIAL and gd.items[i].price > 0)
+	ids.sort()
+	var cap := pl.bag_capacity()
+	for i in cap:
+		pl.inventory[ids[i]] = 1
+	var newi: String = ids[cap]
+	var old: String = ids[0]
+	AuctionSystem._mail_item(sim, newi, 2, "teste")
+	AuctionSystem._mail_item(sim, old, 3, "teste")
+	AuctionSystem._mail_gold(sim, 777, "teste")
+	var g0 := pl.gold
+	var msg: String = sim.auction_collect(pl)
+	check(msg == "Bolsa cheia: 2 ficaram na caixa" and pl.gold == g0 + 777 and int(pl.inventory[old]) == 4 and not pl.inventory.has(newi)
+		and (sim.auction["mail"] as Array).size() == 1, "auction: bolsa cheia deixa o resto na caixa, o ouro sai inteiro (%s)" % msg)
+	pl.inventory.clear()
+	check(sim.auction_collect(pl, int(sim.auction["mail"][0]["id"])) == "" and int(pl.inventory.get(newi, 0)) == 2 and (sim.auction["mail"] as Array).is_empty(),
+		"auction: pegar uma entrada só")
+	# venda e vencido entram mesmo com a caixa no teto
+	while (sim.auction["mail"] as Array).size() < Balance.AUCTION_MAIL_MAX:
+		AuctionSystem._mail_gold(sim, 1, "teste")
+	var cc := _auction_common_card(gd)
+	var l := _auction_put(sim, cc, 1, 20, true, 0.01)
+	var l2 := _auction_put(sim, cc, 1, 20, true)
+	AuctionSystem._bot_buy(sim, l2, 0.0)
+	AuctionSystem.update(sim, Balance.AUCTION_TICK_S + 1.0)
+	check((sim.auction["mail"] as Array).size() >= Balance.AUCTION_MAIL_MAX + 2 and AuctionSystem.find(sim, int(l["id"])).is_empty(),
+		"auction: venda e vencido entram com a caixa no teto (%d)" % (sim.auction["mail"] as Array).size())
+	# carta comprada entra no Bestiário como achada (§10 P3)
+	sim.auction["mail"] = []
+	var cd: CardDef = gd.cards[cc]
+	pl.bestiary.erase(cd.monster_id)
+	AuctionSystem._mail_item(sim, cc, 1, "teste")
+	sim.auction_collect(pl)
+	check(int(pl.bestiary.get(cd.monster_id, 0)) & CardSystem.FOUND != 0, "auction: carta tirada da caixa marca achada no Bestiário")
+
+func _check_auction_expire(gd, sim, _save, _ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	var pl: SimEntity = sim.player
+	var cc := _auction_common_card(gd)
+	pl.add_item(cc, 2)
+	var top := AuctionSystem.price_range(sim, gd.items[cc]).y          # caro demais: nenhum bot compra
+	check(sim.auction_list(pl, cc, 1, top, 2) == "", "auction: anúncio caro para vencer")
+	var gold := pl.gold
+	var lid: int = sim.auction_search({"mine": true})[0]["id"]
+	var expired := []
+	var on_exp := func(id: int, _i: String, _c: int): expired.append(id)
+	Events.auction_expired.connect(on_exp)
+	AuctionSystem.update(sim, 3600.0)
+	check(not AuctionSystem.find(sim, lid).is_empty(), "auction: antes do prazo o anúncio fica")
+	AuctionSystem.update(sim, 3600.0 + Balance.AUCTION_TICK_S)
+	Events.auction_expired.disconnect(on_exp)
+	var back: Array = (sim.auction["mail"] as Array).filter(func(m): return m["item"] == cc)
+	check(AuctionSystem.find(sim, lid).is_empty() and back.size() == 1 and pl.gold == gold and expired.has(lid),
+		"auction: venceu: item na caixa, taxa não volta, sinal auction_expired")
+	check(sim.auction_list(pl, cc, 1, 30, 8) == "", "auction: anuncia de novo")
+	var lid2: int = sim.auction_search({"mine": true})[0]["id"]
+	gold = pl.gold
+	check(sim.auction_cancel(pl, lid2) == "" and AuctionSystem.find(sim, lid2).is_empty() and pl.gold == gold
+		and (sim.auction["mail"] as Array).filter(func(m): return m["item"] == cc).size() == 2, "auction: cancelar devolve à caixa sem a taxa")
+	var bot_l := _auction_put(sim, cc, 1, 30, false)
+	check(sim.auction_cancel(pl, int(bot_l["id"])) == "Este anúncio não é seu", "auction: não cancela anúncio de bot")
+
+func _check_auction_bot_sale(gd, sim, _save, _ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	sim.auction["listings"] = []
+	var cc := _auction_common_card(gd)
+	var it: ItemDef = gd.items[cc]
+	var l := _auction_put(sim, cc, 2, 1, true)
+	var teto := AuctionSystem.teto_bot(sim, it, 0.0)        # com o anúncio na lista (procura da carta)
+	l["unit"] = int(teto)
+	var paid0 := int(sim.auction["paid"])
+	var sold := []
+	var on_sold := func(id: int, _i: String, _c: int, g: int): sold.append([id, g])
+	Events.auction_sold.connect(on_sold)
+	var ok := AuctionSystem._bot_buy(sim, l, 0.0)
+	Events.auction_sold.disconnect(on_sold)
+	var total := int(teto) * 2
+	var net := total - int(round(total * Balance.AUCTION_CUT))
+	var golds: Array = (sim.auction["mail"] as Array).filter(func(m): return m["kind"] == "gold")
+	check(ok and golds.size() == 1 and int(golds[0]["gold"]) == net and sold.size() == 1 and int(sold[0][1]) == net and int(sim.auction["paid"]) == paid0 + total,
+		"auction: bot compra no teto e a caixa recebe preço × (1 − comissão) (%d)" % net)
+	check((sim.auction["history"].get(cc, []) as Array).size() == 1, "auction: a venda entra no histórico do item")
+	sim.auction["history"] = {}                     # a procura da carta não mexe no teste da enxurrada
+	var teto1 := AuctionSystem.teto_bot(sim, it, 0.0)
+	sim.auction["flood"] = {}
+	var teto0 := AuctionSystem.teto_bot(sim, it, 0.0)
+	check(teto1 < teto0, "auction: enxurrada baixa o teto do mesmo item (%.1f -> %.1f)" % [teto0, teto1])
+	var hi := _auction_put(sim, cc, 1, int(teto0) + 1, true)
+	check(not AuctionSystem._bot_buy(sim, hi, 0.0), "auction: acima do teto nunca vende")
+	(sim.auction["listings"] as Array).erase(hi)
+	var lo := _auction_put(sim, cc, 1, 20, true)
+	sim.auction["budget"] = 0.0
+	check(not AuctionSystem._bot_buy(sim, lo, 0.0), "auction: com o orçamento zerado não vende")
+	# exemplo da §7: carta comum de 30, sem procura
+	sim.auction["listings"] = []
+	check(AuctionSystem.ref(sim, it) == Balance.CARD_PRICE_COMMON and int(AuctionSystem.teto_bot(sim, it, 0.1)) == 33 and AuctionSystem.floor_bot(it) == 19,
+		"auction: exemplo da §7 (ref 30, teto 33, piso 19)")
+
+func _check_auction_no_loop(gd, sim, _save, _ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	var mood_hi := float(Balance.AUCTION_BUY_MOOD[1])
+	var cut := Balance.AUCTION_CUT
+	check(Balance.AUCTION_SHOP_PAY_MAX * (1.0 - cut) < 1.0 - Balance.CHAIN_FAIR_DISCOUNT, "auction: invariante loja→bot (Feira)")
+	check(Balance.AUCTION_CRAFT_PAY_MAX * (1.0 - cut) < 1.0, "auction: invariante fabricar→bot")
+	check(Balance.AUCTION_PLUS_RECOVER * (1.0 + mood_hi) * (1.0 - cut) < 1.0, "auction: invariante aprimorar→bot")
+	var bad_floor: Array = []
+	var bad_shop: Array = []
+	var bad_craft: Array = []
+	for iid in gd.items:
+		var it: ItemDef = gd.items[iid]
+		if AuctionSystem.sellable(it) != "":
+			continue
+		if AuctionSystem.floor_bot(it) <= CraftSystem.sell_price(it):
+			bad_floor.append(iid)
+		var teto := AuctionSystem.teto_bot(sim, it, mood_hi)
+		if AuctionSystem.shop_sold(sim, iid) and teto * (1.0 - cut) >= it.price * (1.0 - Balance.CHAIN_FAIR_DISCOUNT):
+			bad_shop.append(iid)
+		var mc := AuctionSystem.min_craft_cost(sim, it)
+		if mc < INF and teto > mc + 0.001:
+			bad_craft.append(iid)
+	check(bad_floor.is_empty(), "auction: piso_bot > venda ao mercador para todo item (%s)" % [bad_floor.slice(0, 5)])
+	check(bad_shop.is_empty(), "auction: item de loja: teto × (1 − comissão) < preço da Feira (%s)" % [bad_shop.slice(0, 5)])
+	check(bad_craft.is_empty(), "auction: toda receita: teto ≤ custo mínimo de fabricar (%s)" % [bad_craft.slice(0, 5)])
+	var bad_plus: Array = []
+	var pool: Array = []
+	for t in [0, 2, 4, 6]:
+		pool.append_array(LootSystem.gear_pool(sim, t).slice(0, 4))
+	for b: ItemDef in pool:
+		var tb := AuctionSystem.teto_bot(sim, b, mood_hi)
+		for n in range(1, Balance.PLUS_MAX + 1):
+			var p: ItemDef = gd.plus_item(b, n)
+			if (AuctionSystem.teto_bot(sim, p, mood_hi) - tb) * (1.0 - cut) >= AuctionSystem.plus_gold(sim, b, n):
+				bad_plus.append(p.id)
+	check(not pool.is_empty() and bad_plus.is_empty(), "auction: +1..+9: o bot paga menos que o ouro do aprimoramento (%s)" % [bad_plus.slice(0, 5)])
+
+func _check_auction_bot_listings(gd, sim, _save, ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	var names := {}
+	for e in sim.entities.values():
+		if e.kind == SimEntity.Kind.BOT:
+			names[e.name] = true
+	for r in sim.roster:
+		names[str(r["name"])] = true
+	var seen := {}
+	var bad: Array = []
+	var over := 0
+	var n_new := 0
+	var by_kind := {}
+	for p in 200:
+		AuctionSystem.pulse(sim)
+		var counts := AuctionSystem.band_counts(sim)
+		for c in counts:
+			if int(c) > Balance.AUCTION_BAND_MAX:
+				over += 1
+		for l in sim.auction["listings"]:
+			if l["mine"] or seen.has(l["id"]):
+				continue
+			seen[l["id"]] = true
+			n_new += 1
+			var it: ItemDef = gd.items[l["item"]]
+			var pool := AuctionSystem.band_pool(sim, int(l["band"]))
+			var kind := ""
+			for k in AuctionSystem.KINDS:
+				if (pool[k] as Array).has(it.id):
+					kind = k
+			by_kind[kind] = int(by_kind.get(kind, 0)) + 1
+			if AuctionSystem.sellable(it) != "" or kind == "" or it.base_id != "":
+				bad.append("item %s" % it.id)
+			elif int(l["unit"]) < AuctionSystem.floor_bot(it) or float(l["unit"]) > float(l["ref"]) * Balance.AUCTION_BOT_ASK_MAX:
+				bad.append("preço %s %d" % [it.id, int(l["unit"])])
+			elif not names.has(str(l["seller"])):
+				bad.append("vendedor %s" % l["seller"])
+	check(n_new >= 200 and bad.is_empty(), "auction: 200 pulsos de vitrine: %d anúncios, sem lendário/quest, preço na faixa, item da faixa, vendedor real (%s)" % [n_new, bad.slice(0, 5)])
+	check(over == 0, "auction: no máximo AUCTION_BAND_MAX anúncios de bot por faixa")
+	check(by_kind.has("material") and by_kind.has("equipment") and by_kind.has("card") and by_kind.has("potion"), "auction: a vitrine tem os 4 tipos (%s)" % [by_kind])
+	ctx["listed"] = n_new
+
+func _check_auction_d2(gd, sim, _save, _ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	var snap := func() -> Array:
+		var out: Array = []
+		for e in sim.entities.values():
+			if e.kind == SimEntity.Kind.BOT:
+				out.append([e.id, e.gold, e.inventory.duplicate(), e.storage.duplicate()])
+		out.sort_custom(func(x, y): return int(x[0]) < int(y[0]))
+		return out
+	var before: Array = snap.call()
+	var pl: SimEntity = sim.player
+	var cc := _auction_common_card(gd)
+	pl.add_item(cc, 10)
+	pl.add_item("slime_gel", 20)
+	var sold := 0
+	for p in 200:
+		if AuctionSystem.mine_count(sim) < 4:
+			sim.auction_list(pl, cc, 1, 25, 2)
+			sim.auction_list(pl, "slime_gel", 2, AuctionSystem.floor_bot(gd.items["slime_gel"]), 2)
+		var mine0 := AuctionSystem.mine_count(sim)
+		AuctionSystem.pulse(sim)
+		sold += maxi(0, mine0 - AuctionSystem.mine_count(sim))
+		var rows: Array = sim.auction_search({})
+		for r in rows:
+			if not r["mine"] and int(r["total"]) < 200:
+				sim.auction_buy(pl, int(r["id"]))
+				break
+		if (sim.auction["mail"] as Array).size() > 40:
+			sim.auction["mail"] = []
+	check(sold > 0, "auction: bots compraram anúncios do jogador nos 200 pulsos (%d)" % sold)
+	check(snap.call() == before, "auction: D2: bolsa, ouro e depósito de todos os bots iguais depois de 200 pulsos com compras e vendas")
+
+func _check_auction_save(gd, sim, save, _ctx: Dictionary) -> void:
+	_auction_fresh(sim)
+	var pl: SimEntity = sim.player
+	for p in 5:
+		AuctionSystem.pulse(sim)
+	var cc := _auction_common_card(gd)
+	pl.add_item(cc, 2)
+	sim.auction_list(pl, cc, 1, 30, 8)
+	AuctionSystem._mail_gold(sim, 55, "teste")
+	AuctionSystem._mail_item(sim, "slime_gel", 4, "teste")
+	AuctionSystem._record(sim, cc, 31)
+	sim.auction["flood"][cc] = 2.0
+	AuctionSystem.update(sim, 17.0)
+	var before: Dictionary = AuctionSystem.to_save(sim)
+	var clock: float = sim.auction["clock"]
+	save.save_player(pl)                         # gravação de verdade no TEST_SLOT
+	var d: Dictionary = save.load_data(TEST_SLOT)
+	check(d.get("market") is Dictionary and not (d["market"] as Dictionary).is_empty(), "auction: o save grava o campo market")
+	AuctionSystem.from_save(sim, d)
+	var after: Dictionary = AuctionSystem.to_save(sim)
+	check(_auction_same(before, after), "auction: anúncios (tempo que falta), caixa, histórico, enxurrada e orçamento voltam iguais")
+	check(is_equal_approx(float(sim.auction["clock"]), clock), "auction: carregar não avança o relógio")
+	# item que saiu do catálogo some sem erro
+	var d2: Dictionary = (d["market"] as Dictionary).duplicate(true)
+	(d2["listings"] as Array).append({"id": 9999, "item": "item_que_saiu", "count": 1, "unit": 5, "seller": "X", "mine": false, "left": 100.0})
+	(d2["mail"] as Array).append({"id": 9999, "kind": "item", "item": "item_que_saiu", "count": 1})
+	AuctionSystem.from_save(sim, {"market": d2})
+	check(AuctionSystem.find(sim, 9999).is_empty() and not (sim.auction["mail"] as Array).any(func(m): return m["item"] == "item_que_saiu")
+		and (sim.auction["listings"] as Array).size() == (before["listings"] as Array).size(), "auction: item que saiu do catálogo some")
+	# preço de bot fora da faixa nova é preso de novo
+	var d3: Dictionary = (d["market"] as Dictionary).duplicate(true)
+	for o in d3["listings"]:
+		if not o["mine"]:
+			o["unit"] = 999999
+	AuctionSystem.from_save(sim, {"market": d3})
+	check((sim.auction["listings"] as Array).all(func(l): return l["mine"] or float(l["unit"]) <= maxf(AuctionSystem.floor_bot(gd.items[l["item"]]),
+		AuctionSystem.ref(sim, gd.items[l["item"]]) * Balance.AUCTION_BOT_ASK_MAX)), "auction: preço de bot preso na faixa ao carregar")
+	# save sem o campo = mercado novo
+	sim.auction_on = false
+	AuctionSystem.from_save(sim, {})
+	check(sim.auction.is_empty(), "auction: save sem market = mercado vazio")
+	AuctionSystem.start(sim)
+	AuctionSystem.update(sim, 0.1)
+	check(not (sim.auction["listings"] as Array).is_empty() and (sim.auction["mail"] as Array).is_empty(), "auction: mercado novo enche no 1º pulso")
+
+## Iguais depois de passar pelo JSON (números int/float do arquivo).
+func _auction_same(a: Dictionary, b: Dictionary) -> bool:
+	return JSON.stringify(JSON.parse_string(JSON.stringify(a)), "", true) == JSON.stringify(JSON.parse_string(JSON.stringify(b)), "", true)
+
+func _check_auction_npc(gd, sim, _save, _ctx: Dictionary) -> void:
+	for mid in ["city_aldara", "city_port", "city_lumeria"]:
+		var md: MapDef = gd.maps[mid]
+		var ns: Array = md.npcs.filter(func(n): return str(n.get("role", "")) == Balance.AUCTION_NPC_ROLE)
+		check(ns.size() == 1 and str(ns[0].get("if", "")) == "" and str(ns[0].get("unless", "")) == "",
+			"auction: Leiloeiro (role auction) em %s, sem condição (todos os estágios)" % mid)
+		if ns.size() == 1:
+			check(sim.is_walkable(ns[0]["pos"], md, 0.5), "auction: Leiloeiro de %s em chão livre" % mid)
+	check(NpcServices.SERVICES.has(Balance.AUCTION_NPC_ROLE) and NpcServices.LABELS.has(Balance.AUCTION_NPC_ROLE),
+		"auction: Leiloeiro tem ícone de serviço em NpcServices (papel auction; UI)")
+
+## Espião da Casa de Leilões para a UI: repassa à sim de verdade e anota as ações (o que a janela chamou).
+class AuctionSpy:
+	var sim
+	var player: SimEntity
+	var calls: Array = []
+	func _init(s) -> void:
+		sim = s
+		player = s.player
+	func auction_status(e: SimEntity) -> Dictionary: return sim.auction_status(e)
+	func auction_search(f: Dictionary = {}) -> Array: return sim.auction_search(f)
+	func auction_sellable(i: String) -> String: return sim.auction_sellable(i)
+	func auction_ref(i: String) -> int: return sim.auction_ref(i)
+	func auction_suggest(i: String) -> int: return sim.auction_suggest(i)
+	func auction_price_range(i: String) -> Vector2i: return sim.auction_price_range(i)
+	func auction_fee(i: String, c: int, u: int, h: int) -> int: return sim.auction_fee(i, c, u, h)
+	func auction_trend(i: String) -> int: return sim.auction_trend(i)
+	func auction_list_error(e: SimEntity, i: String, c: int, u: int, h: int) -> String: return sim.auction_list_error(e, i, c, u, h)
+	func auction_list(e: SimEntity, i: String, c: int, u: int, h: int) -> String:
+		calls.append(["auction_list", i, c, u, h])
+		return sim.auction_list(e, i, c, u, h)
+	func auction_buy(e: SimEntity, lid: int) -> String:
+		calls.append(["auction_buy", lid])
+		return sim.auction_buy(e, lid)
+	func auction_cancel(e: SimEntity, lid: int) -> String:
+		calls.append(["auction_cancel", lid])
+		return sim.auction_cancel(e, lid)
+	func auction_collect(e: SimEntity, mid: int = -1) -> String:
+		calls.append(["auction_collect", mid])
+		return sim.auction_collect(e, mid)
+	func did(m: String) -> Array:
+		var out: Array = []
+		for c in calls:
+			if c[0] == m:
+				out.append(c)
+		return out
+
+## Janela do Leiloeiro (game/ui/auction_ui.gd; casa-de-leiloes.md §6): textos puros, as 4 abas, e cada botão chama o repasse
+## certo da sim (espião AuctionSpy em AuctionUi.src): comprar, anunciar (com o preço sugerido e o lote), cancelar, pegar tudo;
+## "Seu" sem Comprar; longe do balcão os botões ficam cinza; filtros no formato do contrato. `--only=auction_ui`
+func _check_auction_ui(gd, sim, save) -> void:
+	check(AuctionUi.time_left(0.0) == "Vencido" and AuctionUi.time_left(30.0) == "< 1 min" and AuctionUi.time_left(720.0) == "12 min"
+		and AuctionUi.time_left(3900.0) == "1 h 05 min", "auction_ui: tempo que falta (Vencido, < 1 min, 12 min, 1 h 05 min)")
+	check(AuctionUi.trend_mark(1) == "▲" and AuctionUi.trend_mark(-1) == "▼" and AuctionUi.trend_mark(0) == "–", "auction_ui: setinha de tendência")
+	check(AuctionUi.seller_text({"mine": true, "seller": "Eu"}) == "Seu" and AuctionUi.seller_text({"mine": false, "seller": "Rook"}) == "Rook",
+		"auction_ui: anúncio do jogador marca Seu, o de bot mostra o nome")
+	check(AuctionUi.unit_text({"unit": 12, "count": 3}) == "12 cada" and AuctionUi.unit_text({"unit": 12, "count": 1}) == "12", "auction_ui: preço por unidade")
+	var f1 := AuctionUi.filters(" lobo ", "card", "head", 1, 0)
+	check(f1.get("text", "") == "lobo" and f1.get("type", "") == "card" and f1.get("card_slot", "") == "head"
+		and int(f1.get("level_min", -1)) == int(Balance.XP_BANDS[1][0]) and int(f1.get("level_max", -1)) == int(Balance.XP_BANDS[1][1]) - 1
+		and not f1.has("price_max"), "auction_ui: filtros no formato do contrato (%s)" % [f1])
+	var f2 := AuctionUi.filters("", "material", "head", -1, 50)
+	check(not f2.has("card_slot") and not f2.has("level_min") and int(f2.get("price_max", 0)) == 50 and not f2.has("text"),
+		"auction_ui: encaixe só vale para carta; qualquer nível sem faixa; preço máximo")
+	check(AuctionUi.net_of(100) == 100 - int(round(100 * Balance.AUCTION_CUT)), "auction_ui: líquido = total − comissão")
+	check(AuctionUi.band_label(-1) == "Qualquer nível" and AuctionUi.band_label(0) == "Lv %d-%d" % [int(Balance.XP_BANDS[0][0]), int(Balance.XP_BANDS[0][1])],
+		"auction_ui: rótulo da faixa")
+	# --- janela com a sim de verdade ---
+	var pl: SimEntity = sim.player
+	if pl.party_id >= 0:
+		sim.party_leave(pl)
+	var keep := {"lv": pl.level, "pos": pl.position, "gold": pl.gold, "map": pl.map_id, "inv": pl.inventory.duplicate(), "slot": save.slot}
+	save.slot = TEST_SLOT
+	var old_src: Object = AuctionUi.src
+	_auction_fresh(sim)
+	sim.auction["listings"] = []
+	sim.auction["mail"] = []
+	var mat := ""
+	var ids: Array = gd.items.keys()
+	ids.sort()
+	for iid in ids:
+		var it: ItemDef = gd.items[iid]
+		if it.type == ItemDef.Type.MATERIAL and AuctionSystem.sellable(it) == "" and it.stack_max >= 5:
+			mat = iid
+			break
+	check(mat != "", "auction_ui: há material que vai a leilão")
+	var spy := AuctionSpy.new(sim)
+	AuctionUi.src = spy
+	AuctionUi.f_band = -1
+	AuctionUi.f_type = ""
+	AuctionUi.f_text = ""
+	AuctionUi.f_price_max = 0
+	AuctionUi.page = 0
+	var bot_l := _auction_put(sim, mat, 2, maxi(1, sim.auction_ref(mat)), false)
+	var my_l := _auction_put(sim, mat, 1, maxi(1, sim.auction_ref(mat)), true)
+	var build := func(t: String) -> VBoxContainer:
+		AuctionUi.tab = t
+		var b := VBoxContainer.new()
+		AuctionUi.build(null, b)
+		return b
+	var body: VBoxContainer = build.call("buy")
+	for t in AuctionUi.TABS:
+		check(body.find_child("tab_" + str(t[0]), true, false) is Button, "auction_ui: aba %s existe" % t[1])
+	var bb: Button = body.find_child("buy_%d" % int(bot_l["id"]), true, false)
+	check(bb != null and not bb.disabled, "auction_ui: anúncio de bot tem Comprar (ativo, perto do balcão e com ouro)")
+	check(body.find_child("buy_%d" % int(my_l["id"]), true, false) == null and body.find_child("cancel_%d" % int(my_l["id"]), true, false) is Button,
+		"auction_ui: o meu anúncio não tem Comprar, só Cancelar")
+	var labels: Array = body.find_children("*", "Label", true, false).map(func(l: Label): return l.text)
+	check(labels.has("Seu") and labels.has("Leilo Ana"), "auction_ui: lista mostra Seu e o nome do bot vendedor")
+	if bb:
+		bb.pressed.emit()
+	check(spy.did("auction_buy").size() == 1 and int(spy.did("auction_buy")[0][1]) == int(bot_l["id"]) and AuctionUi.msg_ok
+		and (sim.auction_status(pl)["mail"] as Array).size() == 1, "auction_ui: Comprar chama Sim.auction_buy(id) e o item vai para a Caixa (%s)" % AuctionUi.msg)
+	body.free()
+	AuctionUi.f_text = "zzzz nada"
+	body = build.call("buy")
+	check(body.find_child("EmptyLabel", true, false) != null, "auction_ui: busca sem resultado mostra o aviso de vazio")
+	body.free()
+	AuctionUi.f_text = ""
+	# Vender: lote inteiro no preço sugerido
+	pl.add_item(mat, 5)
+	AuctionUi.select(mat)
+	check(AuctionUi.sel_count == 5 and AuctionUi.sel_price == sim.auction_suggest(mat), "auction_ui: escolher na bolsa abre com o lote e o preço sugerido")
+	body = build.call("sell")
+	var lb: Button = body.find_child("ListButton", true, false)
+	var fee_l: Label = body.find_child("SellFee", true, false)
+	check(lb != null and not lb.disabled and fee_l != null and fee_l.text.contains(str(sim.auction_fee(mat, 5, AuctionUi.sel_price, AuctionUi.sel_hours))),
+		"auction_ui: Vender mostra a taxa da sim e o Anunciar fica ativo")
+	check(body.find_child("bag_" + mat, true, false) != null, "auction_ui: bolsa da aba Vender mostra o item")
+	if lb:
+		lb.pressed.emit()
+	var ls: Array = spy.did("auction_list")
+	check(ls.size() == 1 and ls[0][1] == mat and int(ls[0][2]) == 5 and int(ls[0][4]) in Balance.AUCTION_DURATIONS_H and int(pl.inventory.get(mat, 0)) == 0,
+		"auction_ui: Anunciar chama Sim.auction_list com item, lote, preço e prazo (%s)" % [ls])
+	body.free()
+	# Meus anúncios: cancelar
+	body = build.call("mine")
+	var mine_rows: Array = sim.auction_status(pl)["listings"]
+	var cb: Button = body.find_child("cancel_%d" % int(my_l["id"]), true, false)
+	check(mine_rows.size() == 2 and cb != null and not cb.disabled, "auction_ui: Meus anúncios lista os 2 e tem Cancelar")
+	if cb:
+		cb.pressed.emit()
+	check(spy.did("auction_cancel").size() == 1 and int(spy.did("auction_cancel")[0][1]) == int(my_l["id"]), "auction_ui: Cancelar chama Sim.auction_cancel(id)")
+	body.free()
+	# Caixa: pegar tudo
+	body = build.call("mail")
+	var ca: Button = body.find_child("CollectAll", true, false)
+	check(ca != null and not ca.disabled and body.find_children("collect_*", "Button", true, false).size() == 2, "auction_ui: Caixa com Pegar tudo e um Pegar por entrada")
+	if ca:
+		ca.pressed.emit()
+	check(spy.did("auction_collect").size() == 1 and int(spy.did("auction_collect")[0][1]) == -1 and (sim.auction_status(pl)["mail"] as Array).is_empty()
+		and int(pl.inventory.get(mat, 0)) == 3, "auction_ui: Pegar tudo chama Sim.auction_collect(-1) e a caixa esvazia na bolsa")
+	body.free()
+	body = build.call("mail")
+	check(body.find_child("EmptyLabel", true, false) != null, "auction_ui: caixa vazia mostra o aviso")
+	body.free()
+	# longe do balcão: só olhar
+	_auction_at_npc(sim, false)
+	var bot2 := _auction_put(sim, mat, 1, maxi(1, sim.auction_ref(mat)), false)
+	body = build.call("buy")
+	var b2: Button = body.find_child("buy_%d" % int(bot2["id"]), true, false)
+	check(b2 != null and b2.disabled, "auction_ui: longe do Leiloeiro o Comprar fica cinza")
+	body.free()
+	# pulso do mercado enquanto o jogador digita o preço: a janela não se refaz, o campo fica com o foco e o texto
+	pl.add_item(mat, 4)
+	AuctionUi.select(mat)
+	AuctionUi.tab = "sell"
+	var nui = load("res://game/ui/npc_ui.gd").new()
+	nui.npc = {"name": "Leiloeiro"}
+	nui.mode = "auction"
+	add_child(nui)
+	nui._rebuild()
+	var win0: Control = nui.win
+	var sp: SpinBox = win0.find_child("SellPrice", true, false)
+	var rng: Vector2i = sim.auction_price_range(mat)
+	var typed_n := rng.x + maxi(0, (rng.y - rng.x) / 2)
+	if typed_n == AuctionUi.sel_price:                # tem de ser diferente do sugerido que a janela já mostra
+		typed_n = rng.y if rng.y != typed_n else rng.x
+	var typed := str(typed_n)
+	if sp:
+		sp.get_line_edit().grab_focus()
+		sp.get_line_edit().text = typed           # digitado, ainda sem Enter
+		sp.get_line_edit().text_changed.emit(typed)
+	nui._on_auction_changed()
+	check(sp != null and nui.win == win0 and sp.get_line_edit().has_focus() and sp.get_line_edit().text == typed and AuctionUi.pending,
+		"auction_ui: pulso com o preço sendo digitado não refaz a Vender (foco e texto '%s' ficam)" % typed)
+	if sp:
+		sp.get_line_edit().release_focus()        # SpinBox aplica o texto ao perder o foco
+	nui._process(0.0)
+	var sp2: SpinBox = nui.win.find_child("SellPrice", true, false) if nui.win else null
+	check(nui.win != win0 and not AuctionUi.pending and sp2 != null and int(sp2.value) == int(typed) and AuctionUi.sel_price == int(typed),
+		"auction_ui: foco saiu: a janela se refaz com o preço digitado (%s)" % [sp2.value if sp2 else null])
+	nui._on_auction_changed()
+	check(not AuctionUi.pending and nui.win != null, "auction_ui: pulso sem campo em foco refaz na hora")
+	nui.queue_free()
+	# limpa
+	AuctionUi.src = old_src
+	AuctionUi.tab = "buy"
+	AuctionUi.msg = ""
+	AuctionUi.sel_item = ""
+	AuctionUi.f_band = -1
+	sim.auction_on = false
+	sim.auction.clear()
+	pl.level = keep["lv"]
+	pl.gold = keep["gold"]
+	pl.inventory = keep["inv"]
+	pl.recompute_stats()
+	if pl.map_id != keep["map"]:
+		PortalSystem.change_map(sim, pl, keep["map"], keep["pos"])
+	pl.position = keep["pos"]
+	save.delete_slot(TEST_SLOT)
+	save.slot = keep["slot"]
+
+## O mercado não gasta o sim.rng: N ticks de combate com o mercado ligado e desligado dão o mesmo mundo.
+func _check_auction_rng(gd, _sim, _save, _ctx: Dictionary) -> void:
+	var states: Array = []
+	for on in [false, true]:
+		var ws := WorldSim.new()
+		ws.load_map(gd.maps["city_aldara"])
+		ws.player = ws.spawn_player(gd.classes["paladin"], "Rng", "city_aldara")
+		ws.player.position = ALDARA_FIELD
+		for i in 3:
+			ws.spawn_bot(gd.classes["ranger"], "RngBot%d" % i, "city_aldara", ALDARA_FIELD + Vector3(i * 2.0, 0, 3), 12)
+		for i in 4:
+			ws.spawn_monster(gd.monsters["slime"], "city_aldara", ALDARA_FIELD + Vector3(i * 1.5, 0, -3))
+		if on:
+			AuctionSystem.start(ws)
+		for t in 1800:
+			ws.tick(0.05)
+		var out: Array = []
+		for e in ws.entities.values():
+			out.append([e.id, snappedf(e.hp, 0.01), snappedf(e.position.x, 0.001), snappedf(e.position.z, 0.001), e.gold])
+		out.sort_custom(func(x, y): return int(x[0]) < int(y[0]))
+		states.append([out, ws.rng.state, (ws.auction.get("listings", []) as Array).size()])
+		ws.free()
+	check(states[0][0] == states[1][0] and states[0][1] == states[1][1], "auction: mercado ligado não muda o combate nem o sim.rng")
+	check(int(states[1][2]) > 0, "auction: com o mercado ligado a vitrine andou (%d anúncios)" % int(states[1][2]))

@@ -45,12 +45,20 @@ var arena: Dictionary = {}         # Campo de Caça da Guilda (ArenaSystem): ent
 var world_boss: Dictionary = {}    # Chefes de Mundo com hora marcada (WorldBossSystem): relógios por faixa, aviso, chefe vivo
 var chains: Dictionary = {}        # cadeias de eventos (ChainSystem): passo ativo, relógio, acampamento/feirantes por cadeia
 var world_marks: Dictionary = {}   # marcas de mundo com prazo (WorldState.set_mark): {id: {left, map}}
+var gvg: Dictionary = {}           # Guerra de Guildas (GvgSystem): a partida em andamento ({} = nenhuma); formato no wave6-contract
+var gvg_meta: Dictionary = {}      # Guerra de Guildas: recorde, por guilda, loja comprada (vai no save)
 var gbank: Dictionary = {}         # Banco da Guilda (GuildBankSystem): itens, ouro, Contribuição, encomendas, pedidos
+# Casa de Leilões (AuctionSystem; design/gdd/casa-de-leiloes.md): liga com roster_start; sorteios só no auction_rng
+var auction_on := false
+var auction: Dictionary = {}       # anúncios, caixa, histórico, enxurrada, orçamento, relógio (vai no save: campo market)
+var auction_rng := RandomNumberGenerator.new()
+var _auction_cache: Dictionary = {}     # preços de referência, lojas, receitas e vitrine por faixa (só catálogo; fora do save)
 
 ## Semente fixa já na criação: WorldSim.new() fora da árvore (testes, sondas) nunca roda _ready,
 ## e um RandomNumberGenerator novo nasce com semente aleatória (sorteios mudavam de uma execução para outra).
 func _init() -> void:
 	rng.seed = RNG_SEED
+	auction_rng.seed = RNG_SEED + 1
 
 func _ready() -> void:
 	rng.seed = RNG_SEED
@@ -140,7 +148,12 @@ func reset_world() -> void:
 	guilds.clear()
 	social.clear()
 	arena.clear()
+	gvg.clear()
+	gvg_meta.clear()
 	gbank.clear()
+	auction_on = false
+	auction.clear()
+	auction_rng.seed = RNG_SEED + 1
 	world_boss.clear()
 	chains.clear()
 	world_marks.clear()
@@ -255,6 +268,7 @@ func spawn_monster(mdef: MonsterDef, map_id: String, pos: Vector3, spawner = nul
 	_register(e, map_id)
 	if spawner != null:
 		spawner["alive"].append(e.id)
+		e.spawner_ref = spawner
 	return e
 
 func _add_skills(e: SimEntity, ids: Array) -> void:
@@ -273,6 +287,7 @@ func spawn_summon(owner: SimEntity, mdef: MonsterDef, pos: Vector3, duration: fl
 	e.owner_id = owner.id
 	e.party_id = owner.party_id
 	e.player_owned = owner.kind == SimEntity.Kind.PLAYER or owner.player_owned     # boneco de treino aceita
+	e.gvg_side = owner.gvg_side                  # Guerra de Guildas: a invocação luta pelo lado do dono
 	e.position = pos
 	e.home_position = pos
 	e.radius = mdef.radius
@@ -495,6 +510,8 @@ func despawn(e: SimEntity) -> void:
 	invites.erase(e.id)
 	entities.erase(e.id)
 	despawn_epoch += 1
+	if not e.spawner_ref.is_empty():
+		e.spawner_ref["dirty"] = true     # só o spawner dele refaz a lista `alive` (MobSystem.update_spawners)
 	if maps.has(e.map_id):
 		maps[e.map_id]["entities"].erase(e)
 		if maps[e.map_id].has("chars"):
@@ -545,6 +562,11 @@ func tick(dt: float) -> void:
 		var map_t := pt
 		# 1) comandos (jogador + cérebros)
 		for e: SimEntity in ents:
+			# monstro dormindo fora do tick de conferência (a maioria do mundo): sai antes de qualquer chamada
+			# (as mesmas condições do caminho de baixo, só que na ordem que mais cedo descarta)
+			if e.dormant and e.aggro_target < 0 and (tick_count + e.id) % 20 != 0 and e.owner_id < 0 and e.raid_id < 0 and e.state != SimEntity.State.DEAD \
+					and e.kind == SimEntity.Kind.MONSTER and e.brain != null and e != player and e.hp >= e.stats.max_hp:
+				continue
 			if not e.is_alive():
 				continue
 			var cmd: InputCommand = null
@@ -636,8 +658,12 @@ func tick(dt: float) -> void:
 		ChainSystem.tick_marks(self, dt)     # marcas de mundo das cadeias: prazo de jogo
 	if player != null or not arena.is_empty():
 		ArenaSystem.tick(self, dt)           # Campo de Caça: entradas (1 por hora) e a corrida em andamento
+	if not gvg.is_empty():
+		GvgSystem.tick(self, dt)             # Guerra de Guildas: preparação, relógio, objetos de cerco, renascer, fim
 	if roster_on:
 		RosterSystem.tick(self, dt)          # elenco, rival, guilda, pedido de socorro (passada a cada ROSTER_UPDATE_S)
+	if auction_on:
+		AuctionSystem.update(self, dt)       # Casa de Leilões: só soma o relógio; o trabalho é no pulso de AUCTION_TICK_S
 	if not invites.is_empty():
 		PartySystem.update_invites(self)
 	tick_usec = tick_usec * 0.95 + float(Time.get_ticks_usec() - t_start) * 0.05     # média móvel (overlay/medição)
@@ -655,6 +681,8 @@ func _apply_command(e: SimEntity, cmd: InputCommand, m: Dictionary, dt: float) -
 		if e.mount_left > 0.0:
 			stop_mount(e, "Montaria interrompida")
 		return
+	if e.gvg_side != "" and not gvg.is_empty() and GvgSystem.cannon_cmd(self, e, cmd):
+		return                                       # operando um canhão: o ataque atira, andar larga o canhão
 
 	# --- input buffer: guarda a ação se não pode agir agora ---
 	var action_cmd := cmd
@@ -1770,6 +1798,8 @@ func _spawn_projectile(e: SimEntity, s: SkillDef, power: float, m: Dictionary, i
 
 func _update_projectiles(m: Dictionary, dt: float) -> void:
 	var projs: Array = m["projectiles"]
+	if projs.is_empty():
+		return
 	for p in projs.duplicate():
 		if not p.bounce.is_empty():
 			if _update_bouncer(p, m, dt):
@@ -1790,25 +1820,25 @@ func _update_projectiles(m: Dictionary, dt: float) -> void:
 			remove = true                    # Barreira Sagrada: projétil de fora para na borda
 		if not remove:
 			for t: SimEntity in m["entities"]:
-				if not t.is_alive() or t.id in p.hit_ids or not owner.is_hostile_to(t):
-					continue
+				# longe primeiro (o barato): as outras condições são puras, a ordem não muda o resultado
 				var d := Vector2(t.position.x, t.position.z).distance_to(Vector2(p.position.x, p.position.z))
-				if d <= t.radius + p.radius:
-					p.hit_ids.append(t.id)
-					var from: Vector3 = t.position - p.direction        # projétil vem de onde voa, não de quem atirou
-					_strike(owner, t, p.skill, p.power, p.skill.kind, from, bool(p.effects.get("sure_crit", false)))     # Disparo do Fim: crítico garantido
-					if p.effects.has("pierce_rest") and p.hit_ids.size() == 1:
-						p.power *= float(p.effects["pierce_rest"])     # atravessou o 1º: os outros levam menos
-					owner.combat_timer = Balance.AGGRO_LOSE_TIME
-					_apply_effects(owner, t, p.effects, p.power)
-					_storm_proc(owner, p.skill, t)
-					if p.effects.get("explode") is Dictionary:      # Bola de Fogo: explode no impacto
-						_explode(owner, p, t, m)
-					if p.skill.hit_stop_frames > 0 and (owner == player or t == player):
-						Events.post(&"hit_stop", Combat.hit_stop_frames(p.skill, p.skill.hit_stop_frames, false, false), owner.id, [t.id])
-					if not p.pierce:
-						remove = true
-						break
+				if d > t.radius + p.radius or not t.is_alive() or t.id in p.hit_ids or not owner.is_hostile_to(t):
+					continue
+				p.hit_ids.append(t.id)
+				var from: Vector3 = t.position - p.direction        # projétil vem de onde voa, não de quem atirou
+				_strike(owner, t, p.skill, p.power, p.skill.kind, from, bool(p.effects.get("sure_crit", false)))     # Disparo do Fim: crítico garantido
+				if p.effects.has("pierce_rest") and p.hit_ids.size() == 1:
+					p.power *= float(p.effects["pierce_rest"])     # atravessou o 1º: os outros levam menos
+				owner.combat_timer = Balance.AGGRO_LOSE_TIME
+				_apply_effects(owner, t, p.effects, p.power)
+				_storm_proc(owner, p.skill, t)
+				if p.effects.get("explode") is Dictionary:      # Bola de Fogo: explode no impacto
+					_explode(owner, p, t, m)
+				if p.skill.hit_stop_frames > 0 and (owner == player or t == player):
+					Events.post(&"hit_stop", Combat.hit_stop_frames(p.skill, p.skill.hit_stop_frames, false, false), owner.id, [t.id])
+				if not p.pierce:
+					remove = true
+					break
 		if remove:
 			projs.erase(p)
 			Events.post(&"projectile_removed", p.id)
@@ -2071,6 +2101,10 @@ func _deal_damage(attacker: SimEntity, target: SimEntity, amount: int, crit: boo
 				pd["ult"] = true                      # Festim de Sangue: a sangria dele é dano de Suprema (não enche a carga)
 				break
 		target.put_debuff(pd)
+	if target.gvg_obj != "":
+		amount = GvgSystem.object_damage(self, attacker, target, amount, kind)     # portão: golpe comum 10%; aríete/canhão/área inteiro
+		if amount <= 0:
+			return false
 	if target.shield_hp > 0.0:
 		var absorbed := minf(target.shield_hp, float(amount))
 		target.shield_hp -= absorbed
@@ -2256,6 +2290,8 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 	e.set_state(SimEntity.State.DEAD)
 	e.dead_time = 0.0
 	Events.post(&"entity_died", e.id, killer.id if killer else -1)
+	if e.gvg_side != "" and not gvg.is_empty():
+		GvgSystem.on_death(self, e, killer)        # Guerra de Guildas: placar, renascer, portão caído, cristal quebrado
 	if e.kind == SimEntity.Kind.MONSTER:
 		AuraSystem.on_mob_death(self, e)
 		if roster_on:
@@ -2268,7 +2304,7 @@ func _kill(e: SimEntity, killer: SimEntity) -> void:
 		ElementalSystem.on_died(self, e)
 	elif e.kind == SimEntity.Kind.PLAYER:
 		Events.post(&"notification", "Você morreu. Renascendo %s..." % BotsCatalog.place_words(map_def(PortalSystem.home_of(e)["map"]).name)["em"])
-		if not ArenaSystem.in_run(self, e):          # Campo de Caça: morrer é treino, sem perder XP (§3.6)
+		if not ArenaSystem.in_run(self, e) and e.gvg_side == "":     # Campo de Caça / Guerra de Guildas: sem perder XP
 			var loss := int(e.xp * Balance.DEATH_XP_PENALTY)
 			e.xp = maxi(0, e.xp - loss)
 		BotChat.party_event(self, e, "player_died")
@@ -2365,6 +2401,8 @@ func _update_entity(e: SimEntity, m: Dictionary, dt: float) -> void:
 				e.threat.clear()
 				e.heal_full()
 				Events.post(&"entity_respawned", e.id)
+		elif e.gvg_side != "" and not gvg.is_empty():
+			pass                                         # Guerra de Guildas: o GvgSystem renasce no ponto do lado
 		elif not arena.is_empty() and ArenaSystem.holds(self, e):
 			pass                                         # Campo de Caça: morto assiste até a pausa entre levas
 		elif e.res_hold > 0.0:
@@ -2651,8 +2689,8 @@ func _dormant(e: SimEntity, m: Dictionary) -> bool:
 	if e.aggro_target >= 0 or e.hp < e.stats.max_hp or e.owner_id >= 0 or e.raid_id >= 0:     # investida marcha sozinha
 		e.dormant = false
 		return false
-	if (tick_count + e.id) % 20 == 0 or not e.has_meta(&"dorm_seen"):
-		e.set_meta(&"dorm_seen", true)
+	if (tick_count + e.id) % 20 == 0 or not e.dorm_seen:
+		e.dorm_seen = true
 		var r2 := Balance.DORMANT_RANGE * Balance.DORMANT_RANGE
 		var near := false
 		var at := e.position
@@ -3049,6 +3087,8 @@ func card_socket_error(e: SimEntity, slot: String, card_id: String) -> String:
 ## Liga o elenco (o jogo chama ao entrar no mundo, com o jogador e os bots na sim): save, ou sorteio dos bots de agora.
 func roster_start() -> void:
 	RosterSystem.start(self)
+	if player != null:
+		AuctionSystem.start(self)          # Casa de Leilões liga junto com o elenco
 func roster_list() -> Array:
 	return RosterSystem.list(self) if roster_on else []
 func roster_entry(rid: int) -> Dictionary:
@@ -3195,3 +3235,116 @@ func shop_price(e: SimEntity, it: ItemDef) -> int:
 ## Compra na loja com o preço de agora (shop_price).
 func shop_buy(e: SimEntity, item_id: String, count: int = 1) -> bool:
 	return CraftSystem.buy(e, item_id, count, ChainSystem.shop_mult(self, e.map_id))
+
+# --- Guerra de Guildas (GvgSystem; design/gdd/guerra-de-guildas.md; contrato wave6 §3) ---
+## Dados da aba "Guerra" da janela da Guilda: {guilds, record, can_start, why, insignias}.
+func guild_war() -> Dictionary:
+	return GvgSystem.guild_war(self)
+
+## Começa a guerra contra a guilda de bots `enemy_guild_id` (atacar o castelo dela ou defender o seu). "" = começou.
+func gvg_start(enemy_guild_id: String, attack: bool) -> String:
+	return GvgSystem.start(self, enemy_guild_id, attack)
+
+## Estado para o HUD ({} = sem guerra). Formato no wave6-contract §3.
+func gvg_status() -> Dictionary:
+	return GvgSystem.status(self)
+
+## Objetos de cerco: [{id, type, key, side, hp_pct, pos, alive, operator_id, cd}].
+func gvg_objects() -> Array:
+	return GvgSystem.objects_public(self)
+
+## Ordem do jogador para o lado dele (ids no wave6-contract §3). "" = valeu.
+func gvg_order(order_id: String, target: Variant = null) -> String:
+	return GvgSystem.player_order(self, order_id, target)
+
+## Plano do lado do jogador (só com o comando). "" = valeu.
+func gvg_plan(plan_id: String) -> String:
+	return GvgSystem.player_plan(self, plan_id)
+
+## Jogador assume (true) ou devolve (false) o comando do lado dele.
+func gvg_take_command(on: bool) -> void:
+	GvgSystem.take_command(self, on)
+
+## Papel do jogador na preparação da guerra (muro | cura | artilharia | ponta | batedores). "" = ok.
+func gvg_pick_role(role: String) -> String:
+	return GvgSystem.pick_role(self, role)
+
+## Opera o canhão `cannon_id` (entidade) com o jogador. "" = operando.
+func gvg_cannon_use(cannon_id: int) -> String:
+	return GvgSystem.cannon_use(self, player, cannon_id)
+
+func gvg_cannon_leave() -> void:
+	GvgSystem.cannon_leave(self, player)
+
+## Comando de chat da guerra ("/plano martelo", "/todos portao", "/canhoes", "/recuar"...). "" = não é da guerra; senão a resposta.
+func gvg_chat_command(text: String) -> String:
+	return GvgSystem.chat_command(self, text)
+
+## Sair da guerra (desistir = derrota).
+func gvg_leave() -> void:
+	GvgSystem.forfeit(self)
+
+## Loja de guerra (Intendente das Caçadas): linhas [{id, name, price, kind, ok, why}] e compra ("" = comprou).
+func gvg_shop_rows() -> Array:
+	return GvgSystem.shop_rows(self, player)
+
+func gvg_buy(id: String) -> String:
+	return GvgSystem.buy(self, player, id)
+
+# --- Casa de Leilões (AuctionSystem; design/gdd/casa-de-leiloes.md; contrato production/session-state/auction-contract.md) ---
+## "" = pode ir a leilão; senão o motivo (lendário, missão, sem preço).
+func auction_sellable(item_id: String) -> String:
+	return AuctionSystem.sellable(GameData.items.get(item_id))
+
+## Preço de referência por unidade.
+func auction_ref(item_id: String) -> int:
+	return AuctionSystem.ref(self, GameData.items.get(item_id))
+
+## Preço sugerido por unidade (média dos últimos negócios, dentro da faixa).
+func auction_suggest(item_id: String) -> int:
+	var it: ItemDef = GameData.items.get(item_id)
+	return AuctionSystem.suggest(self, it) if it else 0
+
+## Faixa por unidade que o jogador pode pedir: (mínimo, máximo).
+func auction_price_range(item_id: String) -> Vector2i:
+	var it: ItemDef = GameData.items.get(item_id)
+	return AuctionSystem.price_range(self, it) if it else Vector2i.ZERO
+
+## Taxa de anúncio.
+func auction_fee(item_id: String, count: int, unit_price: int, hours: int) -> int:
+	return AuctionSystem.fee(hours, unit_price * count) if GameData.items.has(item_id) else 0
+
+## Anúncios (filtros no contrato), mais barato primeiro. Lê de qualquer lugar.
+func auction_search(filters: Dictionary = {}) -> Array:
+	return AuctionSystem.search(self, filters)
+
+## Anuncia da bolsa (perto de um Leiloeiro). "" = anunciou.
+func auction_list(e: SimEntity, item_id: String, count: int, unit_price: int, hours: int) -> String:
+	return AuctionSystem.list(self, e, item_id, count, unit_price, hours)
+
+func auction_list_error(e: SimEntity, item_id: String, count: int, unit_price: int, hours: int) -> String:
+	return AuctionSystem.list_error(self, e, item_id, count, unit_price, hours)
+
+## Compra o anúncio inteiro (vai para a caixa). "" = comprou.
+func auction_buy(e: SimEntity, listing_id: int) -> String:
+	return AuctionSystem.buy(self, e, listing_id)
+
+## Cancela um anúncio seu (item para a caixa, a taxa não volta). "" = cancelou.
+func auction_cancel(e: SimEntity, listing_id: int) -> String:
+	return AuctionSystem.cancel(self, e, listing_id)
+
+## Pega da caixa (-1 = tudo). "" = saiu tudo; senão "Bolsa cheia: N ficaram na caixa".
+func auction_collect(e: SimEntity, mail_id: int = -1) -> String:
+	return AuctionSystem.collect(self, e, mail_id)
+
+## Para a UI: meus anúncios, caixa, orçamento dos bots (formato no contrato).
+func auction_status(e: SimEntity) -> Dictionary:
+	return AuctionSystem.status(self, e)
+
+## Setinha do item: +1 alta, -1 baixa, 0 parada.
+func auction_trend(item_id: String) -> int:
+	return AuctionSystem.trend(self, item_id)
+
+## Está perto de um Leiloeiro?
+func auction_near(e: SimEntity) -> bool:
+	return AuctionSystem.near(self, e)

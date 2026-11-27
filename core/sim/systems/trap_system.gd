@@ -33,6 +33,8 @@ static func place_trap(sim: WorldSim, e: SimEntity, s: SkillDef, aim: Vector3, p
 
 static func update_traps(sim: WorldSim, m: Dictionary) -> void:
 	var traps: Array = m["traps"]
+	if traps.is_empty():
+		return                                  # o caso comum: sem copiar a lista vazia por mapa por tick
 	for t in traps.duplicate():
 		var owner: SimEntity = sim.entities.get(t["owner"])
 		if t["kind"] == ZONE and owner != null and owner.is_alive() and owner.map_id == m["def"].id:

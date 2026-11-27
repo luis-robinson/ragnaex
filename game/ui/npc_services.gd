@@ -5,9 +5,9 @@ extends RefCounted
 ## Ícones `assets/icons/service_<serviço>.png`, feitos por `tools/icons/make_icons.tscn -- --only=service` (SERVICE_ICONS).
 
 ## Papéis que viram serviço (a ordem é a da legenda).
-const SERVICES := ["merchant", "storage", "smith", "alchemy", "trainer", "relic", "crystal", "board", "mount", "hunt"]
+const SERVICES := ["merchant", "storage", "smith", "alchemy", "trainer", "relic", "crystal", "board", "mount", "hunt", "auction"]
 const LABELS := {"merchant": "Mercador", "storage": "Depósito", "smith": "Ferreiro", "alchemy": "Alquimista", "trainer": "Mestre de Skills",
-	"relic": "Relicária", "crystal": "Cristal", "board": "Quadro", "mount": "Montarias", "hunt": "Caçadas"}
+	"relic": "Relicária", "crystal": "Cristal", "board": "Quadro", "mount": "Montarias", "hunt": "Caçadas", "auction": "Leiloeiro"}
 const NAME_COLOR := Color(1.0, 0.84, 0.42)       # nome de quem presta serviço (morador fica verde)
 const HEAD_SIZE := 0.5                           # m: largura do ícone sobre a cabeça
 const HEAD_LIFT := 1.35                          # m acima do topo do boneco: acima do nome (+0,32, duas linhas), altura do "!" de quest

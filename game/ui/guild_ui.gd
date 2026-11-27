@@ -15,10 +15,10 @@ static var race_boss := ""            # Rival: chefe escolhido para o desafio
 static var hunt_pick: Array = []      # Campo de Caça: rids escolhidos (vazio = os sugeridos)
 static var hunt_msg := ""             # resposta da última tentativa de entrar
 
-## [id, título, método da sim que libera a aba ("" = sempre)]. As três últimas esperam as specs
+## [id, título, método da sim que libera a aba ("" = sempre)]. Missões = encomendas e pedidos dos bots (aviso ao lado do minimapa abre). As três últimas esperam as specs
 ## banco-da-guilda / arena-da-guilda / guerra-de-guildas (nomes dos métodos a confirmar com a sim).
 const TABS := [["members", "Membros", ""], ["known", "Conhecidos", "roster_list"], ["rival", "Rival", "rival_info"],
-	["bank", "Banco", "guild_bank"], ["hunt", "Campo de Caça", "guild_hunt_field"], ["war", "Guerra", "guild_war"]]
+	["bank", "Banco", "guild_bank"], ["missions", "Missões", "guild_bank"], ["hunt", "Campo de Caça", "guild_hunt_field"], ["war", "Guerra", "guild_war"]]
 const RIVAL_COLOR := Color(1.0, 0.45, 0.35)
 const RIVAL_MARK := "⚔"
 const HELP_COLOR := Color(1.0, 0.42, 0.55)
@@ -163,6 +163,8 @@ static func build(w: Control, body: VBoxContainer) -> void:
 		"rival": _rival(w, body)
 		"hunt": _hunt(w, body)
 		"bank": GuildBankUi.build(w, body)     # Banco da Guilda (guild_bank_ui.gd)
+		"missions": GuildMissionsUi.build(w, body)   # encomendas e pedidos dos bots (guild_missions_ui.gd)
+		"war": GvgUi.build_tab(w, body)        # Guerra de Guildas (gvg_ui.gd)
 		_: body.add_child(UiKit.para("Em breve.", 12, UiKit.MUTED))
 
 static func _set_tab(w: Control, t: String) -> void:

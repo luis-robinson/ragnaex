@@ -363,7 +363,7 @@ const PERSONALITIES := ["calmo", "brincalhao", "competitivo", "timido", "heroico
 const PERSONALITY_LABELS := {"calmo": "Calmo", "brincalhao": "Brincalhão", "competitivo": "Competitivo", "timido": "Tímido", "heroico": "Heroico"}
 const MEMORY_LABELS := {"salvou": "Você o salvou", "grupo": "Venceram um chefe juntos", "abandonou": "Você saiu do grupo na masmorra",
 	"ajudou_pedido": "Você veio no pedido de socorro", "perdeu_saque": "Você ficou com o lendário", "corrida": "Você venceu a corrida de chefe",
-	"presente": "Você deixou no banco algo para ele"}
+	"presente": "Você deixou no banco algo para ele", "guerra": "Venceram uma Guerra de Guildas juntos"}
 
 ## Falas do elenco: evento -> personalidade -> frases ("*" = qualquer personalidade, usado quando a dela falta).
 ## Marcas: {p} jogador, {me} o bot, {map}, {boss}, {lv}, {item}, {guild}.
@@ -489,6 +489,9 @@ const ROSTER_LINES := {
 		"heroico": ["conte comigo!"], "timido": ["s-sim"], "competitivo": ["eu faço melhor"]},
 	"mem_presente": {
 		"*": ["{p}, vi o {item} no banco. é meu número!", "valeu pelo {item}, {p}", "o {item} do banco foi você? obrigado!"]},
+	"mem_guerra": {
+		"*": ["que guerra, {p}! valeu por lutar do nosso lado", "lutei do seu lado, {p}. de novo quando quiser", "ainda ouço o portão caindo. valeu, {p}"],
+		"heroico": ["pela guilda! foi uma honra, {p}"], "competitivo": ["quero a revanche só pra ganhar de novo"]},
 	"party_dry": {
 		"*": ["tá. entro.", "ok, {p}. mas sem largar no meio", "hm. vamos lá"]},
 }
@@ -534,4 +537,23 @@ const ARENA_LINES := {
 	"record": ["LEVA {wave}! recorde novo da guilda, alguém tira print", "leva {wave}, ninguém da guilda chegou tão longe", "{wave}! e o {name} ainda queria sair na 10"],
 	"wipe": ["leva {wave}... o {name} caiu primeiro, claro", "caímos na {wave}. semana que vem passa", "leva {wave}. precisamos de mais cura, só digo isso"],
 	"leave": ["saímos na leva {wave}, bolso cheio", "leva {wave} e fora, sem morrer. gosto assim", "{wave} levas, bom treino"],
+}
+
+## Casa de Leilões (casa-de-leiloes.md §3.5; AuctionSystem._chat): fala de negócio de bot no leilão, por personalidade do elenco
+## ("*" = qualquer bot). {item} = nome do item. Passa pelo ritmo do elenco (RosterSystem.can_speak) e por Balance.AUCTION_CHAT_GAP.
+const AUCTION_LINES := {
+	"sold": {
+		"*": ["vendi {item} no leilão, finalmente", "alguém comprou meu {item}, valeu quem foi", "{item} vendido. ouro na caixa"],
+		"competitivo": ["{item} vendido pelo MEU preço. aprendam", "pedi caro no {item} e venderam. mercado é isso"],
+		"brincalhao": ["vendi {item} kkk quem comprou vai se arrepender", "{item} foi embora, adeus amigo"],
+		"timido": ["...vendi {item}", "venderam meu {item} :)"],
+		"heroico": ["{item} vendido, que sirva bem a quem levou!", "mais um {item} indo pra linha de frente"],
+	},
+	"bought": {
+		"*": ["comprei {item} no leilão, finalmente", "achei {item} no leilão, sorte", "peguei {item} no leilão baratinho"],
+		"competitivo": ["{item} no leilão por esse preço? levei antes de vocês", "comprei {item}. agora ninguém me alcança"],
+		"brincalhao": ["comprei {item} sem ver o preço kkk", "{item} no leilão, impulso puro"],
+		"timido": ["consegui {item} no leilão :)", "...comprei {item}"],
+		"heroico": ["{item} comprado. bora pra caçada!", "com esse {item} a gente segura a próxima"],
+	},
 }

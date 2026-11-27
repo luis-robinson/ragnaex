@@ -246,6 +246,10 @@ ZONES = {
     # Campo de Caça da Guilda (arena de hordas, build_guild_grounds.py): pátio de treino ao entardecer, visto do sul
     "guild_grounds": {"name": "Campo de Caça da Guilda", "ground": (0.5, 0.66, 0.4), "mood": "steppe",
                       "cam": {"at": (0, 2), "az": -24, "dist": 62, "elev": 30, "pitch": 22, "fov": 46}},
+    # Campo da Guerra (Guerra de Guildas, build_gvg_field.py): o castelo do norte visto por cima do reduto, do sudoeste;
+    # os portões quebrados (`_broken`) são do jogo, fora da foto
+    "gvg_field": {"name": "Campo da Guerra", "ground": (0.46, 0.58, 0.36), "mood": "steppe", "hide": ["_broken"],
+                  "cam": {"at": (0, 14), "az": -22, "dist": 74, "elev": 27, "pitch": 20, "fov": 46}},
     "dg_goblin": {"name": "Grutas Goblin", "ground": (0.34, 0.32, 0.24), "mood": "dungeon", "ambient": (0.85, 0.7, 0.6),
                   "hall": {"focus": (0, 62)},
                   "boss": {"id": "boss_agitator_lord", "clip": "shout", "frame": 12, "at": (4.5, 52), "turn": 30, "foot_col": TORCH},

@@ -108,7 +108,8 @@ const STATUS_ICONS := {"burn": ["fire", "flame"], "poison": ["poison", "drop"], 
 ## Serviço de NPC (ícone sobre a cabeça e no minimapa, NpcServices): papel -> [tema, símbolo]; arquivo service_<papel>.png
 const SERVICE_ICONS := {"merchant": ["holy", "coin"], "smith": ["fire", "anvil"], "alchemy": ["poison", "flask"], "storage": ["earth", "chest"],
 	"trainer": ["lunar", "book"], "relic": ["shadow", "gem"], "crystal": ["ice", "crystal"], "board": ["physical", "scroll"], "mount": ["earth", "horse"],
-	"hunt": ["blood", "flag"]}     # Intendente das Caçadas (mvp-premios.md §3.6)
+	"hunt": ["blood", "flag"],     # Intendente das Caçadas (mvp-premios.md §3.6)
+	"auction": ["holy", "gavel"]}  # Leiloeiro (casa-de-leiloes.md §3.1)
 const ACTION_ICONS := {"mount": ["earth", "horse"], "mount_dire_wolf": ["earth", "wolf"], "recall": ["lunar", "portal"], "dash": ["wind", "dash"],
 	# montarias dos Chefes de Mundo (mvp-premios.md §3.4; ActionBar.mount_icon)
 	"mount_war_boar": ["earth", "boar"], "mount_forest_elk": ["nature", "elk"], "mount_ruins_lizard": ["earth", "lizard"],
@@ -1148,6 +1149,26 @@ func _g_coin() -> void:
 	_c(0.16, 0.16, 0.7)
 	_garc(_v([0.16, 0.16])[0], 0.48, 40, INK, 0.06)
 	_p([0.08, -0.2, 0.24, -0.2, 0.24, 0.52, 0.08, 0.52], 3, 0.0)
+
+## Martelo de leilão: cabeça deitada em diagonal, cabo para baixo à direita, bloco de som embaixo.
+func _g_gavel() -> void:
+	_p([-0.95, 0.66, 0.35, 0.66, 0.35, 0.94, -0.95, 0.94], Color(0.5, 0.33, 0.2))          # bloco
+	_p([-0.95, 0.66, 0.35, 0.66, 0.35, 0.74, -0.95, 0.74], 3, 0.0)
+	_p(_turn([-0.06, -0.05, 0.06, -0.05, 0.06, 1.15, -0.06, 1.15], -0.75, Vector2(-0.12, -0.42)), Color(0.55, 0.36, 0.22))   # cabo
+	_p(_turn([-0.55, -0.24, 0.55, -0.24, 0.55, 0.24, -0.55, 0.24], -0.75, Vector2(-0.12, -0.42)))                         # cabeça
+	for s: float in [-1.0, 1.0]:                                                                                          # aros das pontas
+		var x0 := 0.38 * s
+		var x1 := 0.55 * s
+		_p(_turn([x0, -0.27, x1, -0.27, x1, 0.27, x0, 0.27], -0.75, Vector2(-0.12, -0.42)), 3, 0.05)
+	_p(_turn([-0.38, -0.24, 0.38, -0.24, 0.38, -0.1, -0.38, -0.1], -0.75, Vector2(-0.12, -0.42)), 4, 0.0)               # brilho
+
+## Gira os pontos [x, y, ...] por `ang` e leva para `at` (desenho de peça inclinada).
+func _turn(a: Array, ang: float, at: Vector2) -> Array:
+	var out: Array = []
+	for i in range(0, a.size(), 2):
+		var v := Vector2(float(a[i]), float(a[i + 1])).rotated(ang) + at
+		out.append_array([v.x, v.y])
+	return out
 
 func _g_anvil() -> void:
 	_p([-1.0, -0.42, -0.45, -0.58, 0.82, -0.58, 0.82, -0.18, 0.36, -0.06, 0.28, 0.34, 0.66, 0.58, 0.66, 0.8, -0.56, 0.8, -0.56, 0.58, -0.18, 0.34, -0.26, -0.06, -0.56, -0.2])

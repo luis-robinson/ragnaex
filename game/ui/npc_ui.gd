@@ -5,7 +5,7 @@ var hud
 var win: PanelContainer = null
 var npc_id := ""
 var npc: Dictionary = {}
-var mode := "dialog"   # dialog | shop | craft | enhance | storage | relic | trainer | hunt
+var mode := "dialog"   # dialog | shop | craft | enhance | storage | relic | trainer | hunt | auction
 var craft_panel: CraftPanel       # forja/caldeirão (game/ui/craft_panel.gd)
 var refine_panel: RefinePanel     # refino (game/ui/refine_panel.gd)
 var hold_refresh := false         # lote da forja/refino: reconstrói uma vez só no fim
@@ -22,10 +22,14 @@ func _ready() -> void:
 	Events.item_removed.connect(func(id, _i, _c): _refresh_if_mine(id))
 	Events.quest_completed.connect(func(id, _q): _refresh_if_mine(id))
 	Events.mastery_changed.connect(func(id, _s, _l): _refresh_if_mine(id))   # rank subiu (Mestre de Skills)
+	Events.auction_changed.connect(_on_auction_changed)                     # Leiloeiro: pulso/compra/venda mexeu no mercado
 
 func _process(_delta: float) -> void:
 	if win != null and npc_id != "":
 		Sim.hold_npc(npc_id)          # conversando: o morador não sai andando
+	if win != null and mode == "auction" and AuctionUi.pending and AuctionUi.typing_in(win) == null \
+			and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_rebuild()                    # pulso do leilão que esperou o campo perder o foco (mouse solto: não engole o clique)
 
 func is_open() -> bool:
 	return win != null
@@ -34,8 +38,14 @@ func _refresh_if_mine(entity_id: int) -> void:
 	if Sim.player and entity_id == Sim.player.id:
 		_refresh_if_open()
 
+func _on_auction_changed() -> void:
+	if mode == "auction":
+		_refresh_if_open()
+
 func _refresh_if_open() -> void:
 	if win and mode != "dialog" and not hold_refresh:
+		if mode == "auction" and AuctionUi.defer_refresh(win):
+			return                    # digitando preço/busca: só os rótulos mudam agora
 		_rebuild()
 
 func open(id: String) -> void:
@@ -99,6 +109,7 @@ func _rebuild() -> void:
 		"relic": _relic(body)
 		"trainer": _trainer(body)
 		"hunt": MvpUi.hunt_panel(self, body)
+		"auction": AuctionUi.build(self, body)
 	win.reset_size()
 	win.position = (get_viewport_rect().size - win.size) * 0.5
 	if compact:
@@ -457,6 +468,8 @@ func _dialog(body: VBoxContainer) -> void:
 			actions.add_child(UiKit.button("Aprimorar skills", func(): mode = "trainer"; _rebuild(), 170))
 		"storage":
 			actions.add_child(UiKit.button("Abrir o depósito", func(): mode = "storage"; _rebuild(), 160))
+		"auction":                                # Leiloeiro (casa-de-leiloes.md)
+			actions.add_child(UiKit.button("Abrir o leilão", func(): mode = "auction"; AuctionUi.msg = ""; _rebuild(), 160))
 		"hunt":                                   # Intendente das Caçadas (mvp-premios.md §3.6)
 			var nm := p.mvp_mail.size()
 			actions.add_child(UiKit.button("Loja de insígnias (%d)" % p.mvp_coins, func(): mode = "hunt"; _rebuild(), 190))
@@ -525,14 +538,14 @@ func _shop(body: VBoxContainer) -> void:
 	# --- bolsa ---
 	var right := VBoxContainer.new()
 	cols.add_child(right)
-	right.add_child(UiKit.label("Sua bolsa (vende por 50%)", 14, UiKit.GOLD))
+	right.add_child(UiKit.label("Sua bolsa (vende por %d%%)" % roundi(Balance.MERCHANT_SELL_PCT * 100.0), 14, UiKit.GOLD))
 	var g2 := _shop_grid(right)
 	var ids: Array = p.inventory.keys().filter(func(i): return GameData.items.has(i) and _sellable(GameData.items[i]))
 	ids.sort_custom(func(x, y): return [GameData.items[x].type, GameData.items[x].name] < [GameData.items[y].type, GameData.items[y].name])
 	for iid in ids:
 		var it: ItemDef = GameData.items[iid]
 		var n := int(p.inventory[iid])
-		var each := int(it.price * 0.5)
+		var each := CraftSystem.sell_price(it)
 		var cell := _shop_cell(it, str(n) if n > 1 else "", "+%d" % each, false)
 		var tip := UiKit.item_tooltip(it) + "\n[color=#ffd966]Paga %d ouro (x%d = %d)[/color]\n[color=#9f9]clique: vende 1 · Shift: vende a pilha[/color]" % [each, n, each * n]
 		_tip(cell, tip)
@@ -547,7 +560,7 @@ func _shop(body: VBoxContainer) -> void:
 	var junk := _junk(p)
 	var total := 0
 	for iid in junk:
-		total += int(GameData.items[iid].price * 0.5) * int(p.inventory[iid])
+		total += CraftSystem.sell_price(GameData.items[iid]) * int(p.inventory[iid])
 	var jb := UiKit.button("Vender materiais (+%d ouro)" % total, _sell_junk, 220)
 	jb.disabled = junk.is_empty()
 	jb.tooltip_text = "Vende todos os materiais da bolsa que nenhuma quest ativa pede."
@@ -618,7 +631,7 @@ func _sell_junk() -> void:
 	var got := 0
 	for iid in _junk(p):
 		var n := int(p.inventory[iid])
-		got += int(GameData.items[iid].price * 0.5) * n
+		got += CraftSystem.sell_price(GameData.items[iid]) * n
 		CraftSystem.sell(p, iid, n)
 	Events.notification.emit("Materiais vendidos: +%d ouro" % got)
 	_rebuild()

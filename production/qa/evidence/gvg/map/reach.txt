@@ -1,0 +1,102 @@
+pontes (vao aberto pela sim): [[-44.98, 0.0], [44.98, -0.0]]
+ok   2 pontes, em x = -45 e x = 45                                                  [-45, 45]
+--- marcadores em chao livre (portoes fechados)
+ok   livre: OBJ_cannon_N_01 [-14.0, -33.0]                                          True
+ok   livre: OBJ_cannon_N_02 [14.0, -33.0]                                           True
+ok   livre: OBJ_cannon_N_03 [-30.0, -37.0]                                          True
+ok   livre: OBJ_cannon_N_04 [30.0, -37.0]                                           True
+ok   livre: OBJ_cannon_S_01 [14.0, 33.0]                                            True
+ok   livre: OBJ_cannon_S_02 [-14.0, 33.0]                                           True
+ok   livre: OBJ_cannon_S_03 [30.0, 37.0]                                            True
+ok   livre: OBJ_cannon_S_04 [-30.0, 37.0]                                           True
+ok   livre: OBJ_cannon_hill_01 [-6.0, -4.0]                                         True
+ok   livre: OBJ_cannon_hill_02 [6.0, 4.0]                                           True
+ok   livre: OBJ_crystal_N [0.0, -48.0]                                              True
+ok   livre: OBJ_crystal_S [-0.0, 48.0]                                              True
+ok   livre: OBJ_ram_spawn_N_01 [-6.0, -18.0]                                        True
+ok   livre: OBJ_ram_spawn_N_02 [6.0, -18.0]                                         True
+ok   livre: OBJ_ram_spawn_S_01 [6.0, 18.0]                                          True
+ok   livre: OBJ_ram_spawn_S_02 [-6.0, 18.0]                                         True
+ok   livre: SPAWN_forward_N [0.0, -24.5]                                            True
+ok   livre: SPAWN_forward_S [-0.0, 24.5]                                            True
+ok   livre: SPAWN_side_N [0.0, -54.0]                                               True
+ok   livre: SPAWN_side_S [-0.0, 54.0]                                               True
+ok   livre: TRIG_exit_N [0.0, -57.0]                                                True
+ok   livre: TRIG_exit_S [-0.0, 57.0]                                                True
+--- portoes fechados
+ok   renascer N -> frente do portao principal S                                     True
+ok   renascer N -> frente do portao lateral S                                       True
+ok   renascer N -> SPAWN_forward_S e os 2 arietes de N                              True
+ok   renascer N -> reduto (2 canhoes neutros)                                       True
+ok   renascer N -> TRIG_exit_N                                                      True
+ok   renascer N NAO entra no patio N (portoes fechados)                             False
+ok   renascer N NAO chega ao Cristal N                                              False
+ok   renascer N NAO chega aos canhoes da muralha N                                  False
+ok   renascer N NAO entra no patio S (portoes fechados)                             False
+ok   renascer N NAO chega ao Cristal S                                              False
+ok   renascer N NAO chega aos canhoes da muralha S                                  False
+ok   renascer N -> frente do portao S por so a ponte OESTE (leste e reduto fechados) True
+ok   renascer N -> frente do portao S por so a ponte LESTE (oeste e reduto fechados) True
+ok   renascer N -> frente do portao S por so o reduto (as 2 pontes fechadas)        True
+ok   renascer N -> outro lado com pontes e reduto fechados (o rio veda)             False
+ok   renascer S -> frente do portao principal N                                     True
+ok   renascer S -> frente do portao lateral N                                       True
+ok   renascer S -> SPAWN_forward_N e os 2 arietes de S                              True
+ok   renascer S -> reduto (2 canhoes neutros)                                       True
+ok   renascer S -> TRIG_exit_S                                                      True
+ok   renascer S NAO entra no patio N (portoes fechados)                             False
+ok   renascer S NAO chega ao Cristal N                                              False
+ok   renascer S NAO chega aos canhoes da muralha N                                  False
+ok   renascer S NAO entra no patio S (portoes fechados)                             False
+ok   renascer S NAO chega ao Cristal S                                              False
+ok   renascer S NAO chega aos canhoes da muralha S                                  False
+ok   renascer S -> frente do portao N por so a ponte OESTE (leste e reduto fechados) True
+ok   renascer S -> frente do portao N por so a ponte LESTE (oeste e reduto fechados) True
+ok   renascer S -> frente do portao N por so o reduto (as 2 pontes fechadas)        True
+ok   renascer S -> outro lado com pontes e reduto fechados (o rio veda)             False
+--- patio fechado por dentro
+ok   patio N -> Cristal, 4 canhoes da muralha                                       True
+ok   patio N -> lado de dentro dos 3 portoes                                        True
+ok   patio N NAO sai (portoes fechados)                                             False
+ok   patio N -> Cristal com a escada tapada (a escada e a unica entrada do salao)   False
+     vao andavel da escada N (z = -39.5): 5.0 m para raio 0.45
+ok   patio S -> Cristal, 4 canhoes da muralha                                       True
+ok   patio S -> lado de dentro dos 3 portoes                                        True
+ok   patio S NAO sai (portoes fechados)                                             False
+ok   patio S -> Cristal com a escada tapada (a escada e a unica entrada do salao)   False
+     vao andavel da escada S (z = 39.5): 5.0 m para raio 0.45
+--- um portao caido de cada vez (colisor fora)
+ok   sem gate_main_N: renascer S -> Cristal N                                       True
+ok   sem gate_main_N: o outro castelo (S) continua fechado                          False
+ok   sem gate_side_N: renascer S -> Cristal N                                       True
+ok   sem gate_side_N: o outro castelo (S) continua fechado                          False
+ok   sem gate_rear_N: renascer S -> Cristal N                                       True
+ok   sem gate_rear_N: o outro castelo (S) continua fechado                          False
+ok   sem gate_main_S: renascer N -> Cristal S                                       True
+ok   sem gate_main_S: o outro castelo (N) continua fechado                          False
+ok   sem gate_side_S: renascer N -> Cristal S                                       True
+ok   sem gate_side_S: o outro castelo (N) continua fechado                          False
+ok   sem gate_rear_S: renascer N -> Cristal S                                       True
+ok   sem gate_rear_S: o outro castelo (N) continua fechado                          False
+--- ariete (raio 1,3 m): do ponto de saida ate o portao principal inimigo, so pelas pontes
+ok   ariete N_01 -> diante do portao principal S (0, 26)                            True
+ok   ariete N_01 -> diante do portao lateral S                                      True
+ok   ariete N_02 -> diante do portao principal S (0, 26)                            True
+ok   ariete N_02 -> diante do portao lateral S                                      True
+ok   ariete N pela ponte oeste                                                      True
+ok   ariete N pela ponte leste                                                      True
+ok   ariete S_01 -> diante do portao principal N (0, -26)                           True
+ok   ariete S_01 -> diante do portao lateral N                                      True
+ok   ariete S_02 -> diante do portao principal N (0, -26)                           True
+ok   ariete S_02 -> diante do portao lateral N                                      True
+ok   ariete S pela ponte oeste                                                      True
+ok   ariete S pela ponte leste                                                      True
+ok   ariete (raio 1,3) passa no vao do portao principal caido                       True
+--- estrada de cada ariete (gvg.ram_routes): todo ponto a cada 0,5 m livre para raio 1,3, portoes fechados
+ok   rota ram_01_N (13 pontos) sem obstaculo                                        []
+ok   rota ram_01_S (13 pontos) sem obstaculo                                        []
+ok   rota ram_02_N (13 pontos) sem obstaculo                                        []
+ok   rota ram_02_S (13 pontos) sem obstaculo                                        []
+--- simetria: todo marcador <S> = -(marcador <N>)
+ok   marcadores espelhados pelo centro                                              []
+RESULTADO: 0 falhas []

@@ -53,6 +53,7 @@ var _elem_t := 0.0
 var party_frames: Array = []    # [{id, name, hp, mp, info}]
 var invite_panel: Control = null
 var invite_from := -1
+var invite_held := -1                    # convite que chegou com o resumo da guerra aberto (gvg_hud.release)
 # janelas
 var windows: Dictionary = {}    # nome -> Control
 var windows_script
@@ -77,6 +78,7 @@ var lock_tag: PanelContainer        # Tab: "Travado: <chefe>" no topo enquanto a
 var lock_label: Label
 var boss_bar: BossBar                 # barra do chefe no topo central (vida, fases, conjuração; C4 2026-11-23)
 var arena_hud: ArenaHud               # Campo de Caça da Guilda: leva/pausa/Próxima/Sair + resumo no fim
+var gvg_hud: GvgHud                   # Guerra de Guildas: preparação, faixa da guerra, roda de ordens, canhão, resumo
 var mvp_ui: MvpUi                     # Prêmios de MVP: resumo do prêmio e escolha do Baú do MVP (mvp-premios.md)
 var raid_banner: PanelContainer      # faixa no topo durante uma investida no mapa do jogador (Sim.raid_status)
 var raid_label: Label
@@ -116,6 +118,9 @@ func _ready() -> void:
 	windows_script = load("res://game/ui/windows.gd").new()
 	windows_script.hud = self
 	root.add_child(windows_script)
+	var gmn := root.get_node_or_null("GuildMissionNotice") as GuildMissionNotice
+	if gmn:
+		gmn.windows = windows_script     # clique no aviso abre a janela da Guilda em Missões
 	npc_ui = load("res://game/ui/npc_ui.gd").new()
 	npc_ui.hud = self
 	root.add_child(npc_ui)
@@ -520,6 +525,9 @@ func _build_notifications() -> void:
 	arena_hud.make_summary(root)
 	mvp_ui = MvpUi.new(self)
 	root.add_child(mvp_ui)
+	gvg_hud = GvgHud.new()
+	gvg_hud.hud = self
+	root.add_child(gvg_hud)
 
 ## Coluna da direita: minimapa (com o nome do mapa embaixo) e o rastreador de quests.
 func _build_top_right() -> void:
@@ -555,8 +563,8 @@ func _build_top_right() -> void:
 	quest_tracker.meta_clicked.connect(_on_track_clicked)
 	p.add_child(quest_tracker)
 	minimap.hud = self
-	var gm := GuildMissionCards.new()        # Banco da Guilda: cartões de volta das encomendas, à esquerda do minimapa
-	gm.name = "GuildMissionCards"
+	var gm := GuildMissionNotice.new()       # Banco da Guilda: aviso único das encomendas que voltaram, à esquerda do minimapa (abre a aba Missões)
+	gm.name = "GuildMissionNotice"
 	gm.anchor_left = 1.0; gm.anchor_right = 1.0
 	gm.offset_right = -(MARGIN + Minimap.SIZE + GAP); gm.offset_left = gm.offset_right - 480; gm.offset_top = MARGIN
 	gm.offset_bottom = MARGIN + Minimap.SIZE * 2.0
@@ -1080,7 +1088,7 @@ func toggle_world_map() -> void:
 
 func _update_blocking() -> void:
 	if main and main.controller:
-		main.controller.ui_blocking = _chat_focus or npc_ui.is_open() or (death_panel != null) or (game_menu != null) or (act_end_panel != null)
+		main.controller.ui_blocking = _chat_focus or npc_ui.is_open() or (death_panel != null) or (game_menu != null) or (act_end_panel != null) 			or (gvg_hud != null and gvg_hud.wheel_open())
 
 # ---------------------------------------------------------------------------
 func _notify(text: String) -> void:
@@ -1167,6 +1175,9 @@ func _stack_top_lane() -> void:
 	var y := 0.0
 	if boss_bar.visible:
 		y = boss_bar.offset_top + boss_bar.size.y + LANE_GAP
+	if gvg_hud and gvg_hud.bar.visible:           # Guerra de Guildas: a faixa da guerra fica no topo, o resto desce
+		gvg_hud.bar.offset_top = maxf(6.0, y)
+		y = gvg_hud.bar.offset_top + gvg_hud.bar.size.y + LANE_GAP
 	if arena_hud and arena_hud.visible:            # Campo de Caça: a faixa da leva desce para baixo da barra do chefe
 		arena_hud.offset_top = maxf(6.0, y)
 		y = arena_hud.offset_top + arena_hud.size.y + LANE_GAP
@@ -1282,6 +1293,10 @@ func _on_chat(sender: String, text: String, channel: String) -> void:
 	elif channel == "guild":
 		col = GUILD_CHAT_COLOR
 		tag = "[Guilda] "
+	elif channel == "war":                      # Guerra de Guildas: fala do inimigo "ouvida do campo" (só no Geral)
+		chat_log.append_text("[color=%s][i][b][Campo] %s:[/b] %s[/i][/color]
+" % [GvgUi.OVERHEARD_COLOR, sender, text.replace("[", "[lb]")])
+		return
 	elif Sim.player and sender == Sim.player.name:
 		col = "#ffe9a8"
 	chat_log.append_text("[color=%s][b]%s%s:[/b][/color] %s\n" % [col, tag, sender, text.replace("[", "[lb]")])
@@ -1472,6 +1487,8 @@ func _on_dialog(npc_id: String) -> void:
 	_update_blocking()
 
 func _on_died(id: int, _k: int) -> void:
+	if Sim.player and id == Sim.player.id and GvgUi.in_war():
+		return                                  # Guerra de Guildas: a contagem de renascer é do GvgHud (sem perder XP)
 	if Sim.player and id == Sim.player.id:
 		death_panel = UiKit.panel(Color(0.2, 0.02, 0.04, 0.85), Color(0.8, 0.2, 0.2))
 		death_panel.set_anchors_preset(Control.PRESET_CENTER)
@@ -1629,6 +1646,11 @@ func _chat_command(text: String) -> void:
 	var p: SimEntity = Sim.player
 	var cmd := text.get_slice(" ", 0).to_lower()
 	var arg := text.substr(cmd.length()).strip_edges()
+	var war: Variant = GvgUi.handle_command(text)     # Guerra de Guildas: /plano, /todos portao, /canhoes, /recuar, /morro, /escada
+	if war != null:
+		if str(war) != "":
+			_notify(str(war))
+		return
 	match cmd:
 		"/party", "/lfg", "/procurar":
 			var n: int = Sim.party_seek_start(p)
@@ -1750,6 +1772,9 @@ func _on_party_invited(from_id: int, to_id: int) -> void:
 	var from: SimEntity = Sim.get_entity(from_id)
 	if from == null:
 		return
+	if gvg_hud and gvg_hud.summary_open():         # resumo da guerra aberto: o convite espera ele fechar
+		invite_held = from_id
+		return
 	_close_invite()
 	invite_from = from_id
 	var pn := UiKit.panel(Color(0.08, 0.07, 0.12, 0.95), UiKit.GOLD)
@@ -1785,6 +1810,22 @@ func answer_invite(yes: bool) -> void:
 	else:
 		Sim.party_decline(Sim.player)
 	_close_invite()
+
+## Resumo da Guerra abriu: o quadro do convite aberto sai da frente (sem recusar) e fica guardado.
+func hold_invite() -> void:
+	if invite_from >= 0:
+		invite_held = invite_from
+		_close_invite()
+
+## Resumo da Guerra fechou: mostra o convite guardado se ele ainda vale na sim.
+func release_invite() -> void:
+	var from_id := invite_held
+	invite_held = -1
+	if from_id < 0 or Sim.player == null:
+		return
+	var inv: Dictionary = Sim.invites.get(Sim.player.id, {})
+	if int(inv.get("from", -1)) == from_id:
+		_on_party_invited(from_id, Sim.player.id)
 
 func _close_invite() -> void:
 	if invite_panel and is_instance_valid(invite_panel):

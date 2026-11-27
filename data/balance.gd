@@ -2491,7 +2491,7 @@ const ROSTER_MEMORY_MAX := 8             # lembranças por bot (a mais velha sai
 const ROSTER_UPDATE_S := 1.0             # s entre passadas do RosterSystem (relógio social)
 const ROSTER_LEVEL_SPREAD := 3           # elenco sorteado no nível do jogador ±3
 ## Peso de cada lembrança na afinidade (-100..100). "corrida" = o rival perdeu a corrida de chefe para você (respeito).
-const BOT_MEMORY_WEIGHT := {"salvou": 15, "grupo": 10, "ajudou_pedido": 20, "abandonou": -15, "perdeu_saque": -5, "corrida": 10, "presente": 5}
+const BOT_MEMORY_WEIGHT := {"salvou": 15, "grupo": 10, "ajudou_pedido": 20, "abandonou": -15, "perdeu_saque": -5, "corrida": 10, "presente": 5, "guerra": 10}
 const AFFINITY_MAX := 100
 const AFFINITY_TIERS := [[-30, "Hostil"], [0, "Frio"], [30, "Conhecido"], [60, "Amigo"], [101, "Leal"]]     # abaixo do número = rótulo
 const ROSTER_SAVE_HP := 0.25             # "salvou": curou (ou matou o algoz) com o bot abaixo de 25% da vida
@@ -2723,3 +2723,163 @@ const CHAIN_FAIR_DISCOUNT := 0.15              # Feira: lojas do mapa (e casas d
 const CHAIN_CAMP_BANDITS := 5                  # Acampamento Bandido: bandidos além do mandachuva
 const CHAIN_CAMP_RADIUS := 5.0
 const CHAIN_CAMP_OFFSET := 9.0                 # o acampamento fica a isto da estrada (do ponto onde a caravana caiu)
+
+# --- Guerra de Guildas: inteligência dos bots (GvgBrain, design/gdd/guerra-de-guildas.md §3.6) ---
+const GVG_AI_CHAT_GAP := 6.0                 # s entre falas comuns de um lado (resposta, "ouvido do campo"); plano/gatilho passa
+const GVG_AI_CHAT_MIN := 1.5                 # s mínimos entre quaisquer duas falas do mesmo lado (nem plano fura isto)
+const GVG_AI_OVERHEAR := 0.5                 # chance do plano/troca do inimigo vazar no canal "war"
+const GVG_AI_ACKS := 2                       # respostas no máximo depois de cada anúncio do comandante
+const GVG_AI_PLAN_MIN_S := 20.0              # s mínimos num plano antes de outro gatilho trocar (portão caído não espera)
+const GVG_AI_GATE_LOW := 0.30                # portão principal do defensor abaixo disto = gatilho "gate_low"
+const GVG_AI_FIVE_MIN := 300.0               # s restantes do gatilho "five_min"
+const GVG_AI_HALF_DEAD := 0.5                # fração do lado morta = gatilho "half_dead"
+const GVG_AI_ENGAGE := 9.0                   # m: inimigo a isto de mim entra na briga (fora da caça)
+const GVG_AI_HUNT := 26.0                    # m do ponto do plano: a Ponta caça canhoneiros/curas até aqui
+const GVG_AI_LEASH := 14.0                   # m do ponto do plano: além disto larga a briga e volta
+const GVG_AI_RAM_LEASH := 5.0                # m do aríete: o Muro de escolta só briga até aqui (fica empurrando)
+const GVG_AI_RAM_SPREAD := 0.6               # m de espalhamento em volta da vaga do aríete (fica no raio de empurrar)
+const GVG_AI_RAM_SLOT := 2.0                 # m do centro do aríete onde o Muro anda com ele
+const GVG_AI_BLOCKED_NEAR := 4.0             # m: alvo mais perto que isto se ataca direto (sem conferir o muro no caminho)
+const GVG_AI_HOLD_R := 2.5                   # m: chegou no ponto (espalhado por vaga)
+const GVG_AI_LOW_HP := 0.30                  # vida (fração) sem poção pronta: recua para a cura / o renascer
+const GVG_AI_BACK_HP := 0.75                 # vida para voltar ao plano depois de recuar
+const GVG_AI_SCOUTS_MAX := 3                 # Batedores no máximo por lado (o resto vira Ponta)
+const GVG_AI_ARTY_MAX := 4                   # Artilharia no máximo por lado (o resto dos de longe também atira, como Ponta de longe)
+const GVG_AI_CANNON_RANGE := 45.0            # m: alcance que o bot considera para mirar do canhão (o da sim manda)
+const GVG_AI_CANNON_USE_R := 1.8             # m do canhão para operar (se a sim não disser outro)
+const GVG_AI_CANNON_WARN := 1.2              # s do tiro ao impacto (se a sim não disser outro): o bot mira à frente do aríete
+const GVG_AI_CANNON_CLUSTER := 4.0           # m: inimigos juntos no portão contam como alvo de canhão
+const GVG_AI_CANNON_SAFE := 3.5              # m: não atira onde há aliado a menos disto
+const GVG_AI_CANNON_PEEL := 3.0              # m: inimigo batendo em mim a isto = larga o canhão e briga
+## Plano -> personalidade da guilda -> peso no sorteio (começo e gatilhos; GvgCatalog.pick).
+const GVG_AI_PLAN_WEIGHTS := {
+	"martelo": {"agressiva": 4.0, "defensiva": 1.0, "astuta": 1.0, "equilibrada": 2.0},
+	"pinca": {"agressiva": 2.0, "defensiva": 1.0, "astuta": 4.0, "equilibrada": 2.0},
+	"bateria": {"agressiva": 1.0, "defensiva": 2.0, "astuta": 3.0, "equilibrada": 2.0},
+	"cerco_lento": {"agressiva": 0.5, "defensiva": 4.0, "astuta": 2.0, "equilibrada": 2.0},
+	"muralha": {"agressiva": 1.0, "defensiva": 4.0, "astuta": 2.0, "equilibrada": 3.0},
+	"surtida": {"agressiva": 4.0, "defensiva": 0.5, "astuta": 2.0, "equilibrada": 1.5},
+	"recuo": {"agressiva": 0.3, "defensiva": 1.5, "astuta": 1.5, "equilibrada": 1.0},
+}
+
+# ---------------------------------------------------------------------------
+# Guerra de Guildas — simulação (design/gdd/guerra-de-guildas.md §3/§4/§7; GvgSystem). Números da IA: GVG_AI_* acima.
+const GVG_SIDE_SIZE := 12                    # combatentes por lado (jogador + guilda + recrutas)
+const GVG_TIME_MIN := 20.0                   # min de luta: o defensor vence se o Cristal chegar de pé
+const GVG_PREP_S := 30.0                     # s de preparação (no mapa, perto do renascer; relógio parado)
+const GVG_PREP_RADIUS := 9.0                 # m do renascer que cada um pode andar na preparação
+const GVG_LEVEL_SPREAD := 1                  # bots no nível do jogador ± isto
+const GVG_MIN_LEVEL := 10                    # guerra a partir deste nível do jogador
+const GVG_RESPAWN_S := 15.0                  # s do 1º renascer
+const GVG_RESPAWN_STEP := 5.0                # +s a cada morte do mesmo boneco
+const GVG_RESPAWN_MAX := 35.0                # teto
+const GVG_RESPAWN_SPREAD := 2.5              # m de espalhamento em volta do ponto de renascer
+## Portão: vida = GVG_GATE_HP × nível (lateral × GVG_SIDE_GATE_MULT). Golpe comum (sem área) faz GVG_GATE_PLAIN_MULT.
+const GVG_GATE_HP := 3600.0                  # usuário 2026-11-27: x2 (gvg_probe: portão caía em ~4,5 min, atacante vencia 90%)
+const GVG_SIDE_GATE_MULT := 0.5
+const GVG_GATE_PLAIN_MULT := 0.1
+const GVG_GATE_AREA_MULT := 0.5              # skill de área no portão (× o dano); usuário 2026-11-27: reduzir (1 assassino derrubava o lateral em ~60 s); a sonda calibra
+const GVG_AREA_RADIUS := 2.0                 # m: skill com raio >= isto (chão, em volta de si, cone) conta como área no portão
+const GVG_GATE_DEPTH := 1.0                  # m: meia-espessura da barreira do portão (quem não é do castelo não passa)
+## Aríete: vida = GVG_RAM_HP × nível; anda com >= GVG_RAM_PUSHERS aliados a GVG_RAM_PUSH_R m; bate GVG_RAM_HIT × nível a
+## cada GVG_RAM_HIT_S s (com pelo menos 1 aliado perto). Um aríete sozinho derruba o portão principal em ~4 min (GATE_HP/RAM_HIT = 80 golpes).
+const GVG_RAM_HP := 5200.0                 # usuário 2026-11-27: 10x (com 520 o aríete nunca chegava a bater no portão)
+const GVG_RAM_DEF := 3.0                   # DEF e MDEF do aríete = × nível (90 no 30, acima de um chefe do 30); usuário 2026-11-27: "mais defesa"
+const GVG_RAM_HIT := 45.0                    # x2 junto com o portão: aríete sozinho continua ~4 min (80 golpes)
+const GVG_RAM_HIT_S := 3.0
+const GVG_RAM_PUSHERS := 2                    # usuário 2026-11-27: 3 -> 2 (aríetes ficavam parados)
+const GVG_RAM_PUSH_R := 5.0
+const GVG_RAM_SPEED := 1.3                   # m/s empurrado
+const GVG_RAM_REACH := 3.2                   # m do centro do portão em que o aríete bate
+const GVG_RAM_STUCK_S := 6.0                 # s sem andar empurrado = volta ao último ponto da estrada
+const GVG_RAM_RADIUS := 1.6
+## Canhão: dano = GVG_CANNON_POWER × ATK de referência (média dos combatentes no começo), raio GVG_CANNON_RADIUS, aviso
+## GVG_CANNON_WARN s, recarga GVG_CANNON_CD s; × GVG_CANNON_SIEGE_MULT só em portão (usuário 2026-11-27: aríete leva o dano comum). Opera quem está a GVG_CANNON_USE_R m.
+const GVG_CANNON_POWER := 2.2
+const GVG_CANNON_RADIUS := 3.0
+const GVG_CANNON_WARN := 1.2
+const GVG_CANNON_CD := 6.0
+const GVG_CANNON_SIEGE_MULT := 3.0
+const GVG_CANNON_USE_R := 2.5
+const GVG_CANNON_RANGE := 45.0               # m: mira mais longe é puxada para isto
+const GVG_CANNON_MIN := 5.0                  # m: mira mais perto é empurrada para isto
+## Cristal do Trono: vida = GVG_CRYSTAL_HP × nível; regenera GVG_CRYSTAL_REGEN da vida por s sem atacante a GVG_CRYSTAL_SAFE_R m.
+const GVG_CRYSTAL_HP := 16000.0            # gvg_probe 2026-11-27: com 2600-3400 o lado inteiro quebrava o cristal em ~20 s depois do portão (vitórias de 5-8 min); ~100 s de foco
+const GVG_CRYSTAL_REGEN := 0.004
+const GVG_CRYSTAL_SAFE_R := 14.0
+const GVG_CRYSTAL_EVENT_STEP := 0.02         # aviso gvg_crystal_hit a cada 2% perdidos (e no máx. 1 por s)
+const GVG_HILL_R := 10.0                     # m do centro do morro: quem tem gente sozinho aqui toma o morro
+## Ordens: os bots obedecem por GVG_ORDER_HOLD_S s (o jogador no comando: até outra ordem).
+const GVG_ORDER_HOLD_S := 30.0
+## Prêmios (§3.7): vitória = ouro (× nível) + insígnias; derrota = metade das insígnias, sem ouro. Afinidade "guerra" só na vitória.
+const GVG_REWARD_GOLD := 60
+const GVG_REWARD_INSIGNIAS := 30
+const GVG_REWARD_LOSS_SHARE := 0.5
+const GVG_REWARD_ATTACK_BONUS := 1.2         # atacar e vencer vale × isto (é mais difícil)
+## Loja de guerra (Intendente das Caçadas, aba "Guerra"): id -> {name, price, kind banner|crest|title|mount_dye, color?}
+const GVG_SHOP := {
+	"banner_crimson": {"name": "Estandarte Carmesim do Castelo", "price": 40, "kind": "banner", "color": Color(0.7, 0.16, 0.16)},
+	"banner_azure": {"name": "Estandarte Anil do Castelo", "price": 40, "kind": "banner", "color": Color(0.2, 0.32, 0.7)},
+	"banner_gold": {"name": "Estandarte Dourado do Castelo", "price": 70, "kind": "banner", "color": Color(0.85, 0.66, 0.2)},
+	"crest_lion": {"name": "Brasão do Leão (castelo)", "price": 60, "kind": "crest"},
+	"crest_tower": {"name": "Brasão da Torre (castelo)", "price": 60, "kind": "crest"},
+	"title_breaker": {"name": "Título: Quebra-Portões", "price": 90, "kind": "title", "title": "Quebra-Portões"},
+	"title_warden": {"name": "Título: Guardião do Trono", "price": 90, "kind": "title", "title": "Guardião do Trono"},
+	"dye_war_red": {"name": "Cor de Guerra da Guilda: Vermelho", "price": 50, "kind": "mount_dye", "color": Color(0.55, 0.16, 0.14)},
+	"dye_war_blue": {"name": "Cor de Guerra da Guilda: Azul", "price": 50, "kind": "mount_dye", "color": Color(0.16, 0.24, 0.5)},
+	"dye_war_black": {"name": "Cor de Guerra da Guilda: Negro", "price": 80, "kind": "mount_dye", "color": Color(0.12, 0.12, 0.14)},
+}
+const GVG_END_S := 8.0                       # s do fim (trégua com o resumo) antes de todos voltarem
+const GVG_COMMANDER_S := 1.0                 # s entre duas chamadas do comandante (GvgBrain.commander_tick)
+## Caminho no campo da guerra (GvgSystem.waypoint): grade de células, folga do corpo, quantos campos guardar, refazer a cada s.
+const GVG_NAV_CELL := 1.0
+const GVG_NAV_RADIUS := 0.45
+const GVG_NAV_FIELDS := 96                   # campos de distância guardados (LRU; ~107 KB cada na grade 206x130)
+const GVG_NAV_BUILDS_PER_TICK := 1          # BFS por passo (~10 ms cada): o resto espera na fila (desempenho, não jogo)
+const GVG_NAV_QUEUE := 32                   # pedidos de campo na fila (além disto o bot pede de novo depois)
+const GVG_NAV_SNAP := 6                     # células: destinos no mesmo bloco dividem o campo (se o ponto do bloco vê o destino)
+const GVG_NAV_REPATH_S := 0.5
+const GVG_NAV_LOOKAHEAD := 24                # células à frente no caminho que o bot tenta ver em linha reta
+
+# ---- Casa de Leilões (design/gdd/casa-de-leiloes.md §4/§7; AuctionSystem) ----
+const MERCHANT_SELL_PCT := 0.5               # o mercador paga esta fração do preço (CraftSystem.sell_price); o piso do leilão lê daqui
+const AUCTION_LIST_FEE := 0.01               # taxa de anúncio por 24 h de prazo: max(1, total × isto × h / 24)
+const AUCTION_CUT := 0.05                    # comissão na venda
+const AUCTION_DURATIONS_H := [2, 8, 24]      # prazos (h de jogo)
+const AUCTION_TICK_S := 120.0                # pulso do mercado (s de jogo)
+const AUCTION_BOT_LISTINGS := [6, 10]        # anúncios novos de bots por pulso (sonda: [3, 6] dava 2 novos na faixa por visita de 10 min; alvo >= 5)
+const AUCTION_BAND_MAX := 20                 # anúncios de bots por faixa (XP_BANDS)
+const AUCTION_BAND_MIN_WEIGHT := 0.08        # peso mínimo de uma faixa sem bot vivo (as outras: fração dos bots vivos); 0,15 tirava vitrine das faixas com gente
+const AUCTION_BOT_KIND_WEIGHTS := {"material": 55, "equipment": 20, "card": 15, "potion": 10}
+const AUCTION_BOT_LOT := [1, 5]              # rolagens da tabela de saque num lote de material
+const AUCTION_BOT_POTION_LOT := [1, 5]       # unidades num lote de poção
+const AUCTION_BOT_LISTING_S := [900.0, 3600.0]      # quanto um anúncio de bot fica (sonda: 30-120 min dava 4 novos na faixa por visita de 10 min; alvo >= 5)
+const AUCTION_BOT_CHURN := 0.05              # por pulso: anúncio de bot "vendido" para outro bot (a média anda); 0,08 sumia com a vitrine antes da visita
+const AUCTION_BOT_BUY_CHANCE := 0.2          # por pulso: chance de um bot olhar um anúncio do jogador (compra se ≤ teto); 0,12 dava ~35 min no ref
+## humor do vendedor por personalidade do elenco (pede caro / vende barato); "" = fora do elenco
+const AUCTION_MOODS := {"competitivo": [0.15, 0.35], "calmo": [-0.05, 0.10], "brincalhao": [-0.15, 0.25], "timido": [-0.25, -0.05],
+	"heroico": [-0.10, 0.05], "": [-0.20, 0.25]}
+const AUCTION_BUY_MOOD := [-0.20, 0.10]      # humor do comprador (bot compra se preço ≤ ref × (1 + humor))
+const AUCTION_BOT_ASK_MAX := 1.6             # teto do que um bot pede (× ref)
+const AUCTION_FLOOR_OVER_SELL := 1.25        # piso dos bots: max(ceil(venda_loja × isto), venda_loja + 1)
+const AUCTION_SHOP_PAY_MAX := 0.80           # bot paga no máximo isto do preço de loja (fecha mercador→bot, mesmo na Feira)
+const AUCTION_CRAFT_PAY_MAX := 1.0           # bot paga no máximo o custo mínimo de fabricar × isto
+const AUCTION_PLUS_RECOVER := 0.7            # do ouro gasto no aprimoramento, o quanto entra no ref/teto da cópia +N
+const AUCTION_FLOOD_STEP := 0.04             # cada venda recente do mesmo item para bot baixa o teto em 4%
+const AUCTION_FLOOD_MAX := 10                # até 10 vendas (−40%)
+const AUCTION_FLOOD_HALF_S := 1800.0         # a contagem cai pela metade a cada 30 min
+## torneira: ouro/h que os bots pagam ao jogador por nível (balde de 1 h). Calibrado (auction_probe -- --hunt, 2026-11-27) para ~30% da
+## caça (§10 P1): 4 bots caçando dão ~750 ouro/h por nível (L8 6,5k, L20 13,4k, L33 25,7k; ouro + venda ao mercador) -> 0,3 × 750 ≈ 220.
+## Passa da faixa segura da §7 (20-80), que supunha caça bem menor: decisão para o usuário confirmar.
+const AUCTION_BOT_BUDGET_PER_LV := 220
+const AUCTION_PLAYER_LISTINGS := 12          # anúncios ativos do jogador
+const AUCTION_PLAYER_PRICE_MAX := 10.0       # preço por unidade até ref × isto
+const AUCTION_MAIL_MAX := 60                 # caixa cheia bloqueia só a compra
+const AUCTION_HISTORY_N := 10                # negócios guardados por item (média e setinha)
+const AUCTION_TREND_PCT := 0.05              # setinha se a média dos 3 últimos sai mais que isso da média
+const AUCTION_ROSTER_SHARE := 0.35           # parte da vitrine assinada pelo elenco
+const AUCTION_CHAT_CHANCE := 0.15            # fala de leilão por negócio de bot (passa pelo ritmo do elenco)
+const AUCTION_CARD_DEMAND_DIV := 10.0        # procura = clamp((vendidas − anunciadas) / isto, MIN, MAX)
+const AUCTION_CARD_DEMAND := [-0.5, 1.0]
+const AUCTION_NPC_ROLE := "auction"          # papel do Leiloeiro (Aldara, Porto Esperança, Lumeria)
+const AUCTION_CHAT_GAP := 90.0               # s de mercado entre duas falas de leilão (além do ritmo do elenco)

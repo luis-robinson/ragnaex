@@ -506,11 +506,12 @@ static func update_dummy(sim: WorldSim, e: SimEntity, dt: float) -> void:
 
 static func update_spawners(sim: WorldSim, m: Dictionary, dt: float) -> void:
 	var def: MapDef = m["def"]
-	var epoch := sim.despawn_epoch
 	for sp in m["spawners"]:
 		var sdef: Dictionary = sp["def"]
-		if int(sp.get("epoch", -1)) != epoch:          # só depois de alguém sumir do mundo (era uma lista nova por spawner por tick)
-			sp["epoch"] = epoch
+		# só depois que um monstro DESTE spawner sumiu do mundo (WorldSim.despawn marca "dirty"; antes era qualquer
+		# despawn do mundo, e com 3000 entidades todo spawner refazia a lista quase todo tick)
+		if sp.get("dirty", true):
+			sp["dirty"] = false
 			sp["alive"] = sp["alive"].filter(func(id): return sim.entities.has(id))
 		if not sp.has("escort") and sp["alive"].size() >= int(sdef.get("count", 1)):
 			continue                             # cheio e sem escolta: nada a fazer (o caso comum)

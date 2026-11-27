@@ -104,3 +104,15 @@ signal world_boss_despawned(boss_id: String, map_id: String)                   #
 signal world_boss_killed(boss_id: String, participants: Array)                 # ids acima de WORLD_BOSS_SHARE_MIN
 signal chain_step(chain_id: String, map_id: String, phase: String)             # started | arrived | fell | aborted | cleared | ended
 signal world_mark(mark_id: String, on: bool)                                   # marca de mundo ligou/desligou (WorldState)
+# Guerra de Guildas (GvgSystem; design/gdd/guerra-de-guildas.md; contrato wave6 §3)
+signal gvg_phase(phase: String)                                   # prep | fight | end
+signal gvg_plan_changed(side: String, plan_id: String, reason: String)
+signal gvg_gate_broken(gate_id: String)                           # main_N | side_N | main_S | side_S
+signal gvg_crystal_hit(side: String, pct: float)                  # vida do Cristal (0-1), a cada GVG_CRYSTAL_EVENT_STEP
+signal gvg_order(side: String, order_id: String, from_id: int)
+signal gvg_ended(winner_side: String, summary: Dictionary)        # resumo: GvgSystem.finish
+signal gvg_cannon_fired(cannon_id: int, at: Vector3)              # tiro saiu (o jogo gira o cano e toca o som)
+# Casa de Leilões (AuctionSystem; design/gdd/casa-de-leiloes.md; contrato production/session-state/auction-contract.md)
+signal auction_sold(listing_id: int, item_id: String, count: int, gold: int)     # anúncio do jogador vendido (gold líquido, já na caixa)
+signal auction_expired(listing_id: int, item_id: String, count: int)             # anúncio do jogador venceu: item na caixa
+signal auction_changed()                                                         # pulso, anúncio, compra, cancelamento, retirada

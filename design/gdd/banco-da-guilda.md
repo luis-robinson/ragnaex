@@ -74,9 +74,9 @@ A patente aparece na etiqueta do nome ("Oficial · Lanternas de Aldara") e os bo
 da sua faixa), **quem** (1-3 bots da guilda) e **quanto tempo** (curta 30 min / média 1 h / longa 2 h de jogo). Paga uma
 **taxa** em ouro. Os bots escolhidos **saem do mundo** nesse tempo (não estão no grupo nem na cidade; o chat diz
 "Rook saiu para a Floresta buscar Presas"). No fim, o resultado fica **reservado para você** (não gasta retirada, os outros bots não pegam).
-**Aviso de volta**: aparece um **cartão à esquerda do minimapa** (retrato do bot + ícone do item, pisca de leve). Clicar abre
-a **mensagem do bot** contando como foi ("Voltei da Floresta! Achei 12 Presas de Lince, o lince quase me pegou.") e um botão
-**"Pôr na bolsa"** (se a bolsa está cheia, o botão diz isso e o item continua reservado no banco). Vários cartões empilham.
+**Aviso de volta** (mudado pelo usuário 2026-11-27): **um aviso só à esquerda do minimapa** (ícone do item + "Rook voltou" / "N encomendas voltaram", pisca de leve).
+Clicar abre a aba **Missões** da janela da Guilda (envio, bots fora, pedidos dos bots e as que voltaram), com a **mensagem do bot** contando como foi ("Voltei da Floresta! Achei 12 Presas de Lince, o lince quase me pegou.") e um botão
+**"Pôr na bolsa"** (se a bolsa está cheia, o botão diz isso e o item continua reservado no banco); com mais de uma, "Pôr tudo na bolsa".
 A encomenda **nunca falha**: material sempre vem, em quantidade que depende do nível dos bots e do tempo (§4); encomenda de
 carta pode não achar a carta, e aí o bot traz **metade da taxa de volta** + alguns materiais do monstro.
 
@@ -136,15 +136,15 @@ reservado de encomenda). O registro mostra ("Rook pegou: Botas do Caçador"): o 
 
 1. **Em qualquer cidade com cristal**, pela janela da Guilda.
 2. **Bots tiram um pouco**, só o que serve à build deles (o banco anda).
-3. **Encomenda volta reservada para você**, sem gastar retirada; avisa com um **cartão à esquerda do minimapa** que abre a
-   mensagem do bot e o botão "Pôr na bolsa".
+3. **Encomenda volta reservada para você**, sem gastar retirada; avisa com **um aviso à esquerda do minimapa** que abre a
+   aba Missões (mensagem do bot e "Pôr na bolsa"; 2026-11-27, antes era um cartão por encomenda).
 4. **Encomenda nunca falha**: bots fracos trazem menos; carta não achada devolve metade da taxa.
 
 ## 10. Implementação (2026-11-26)
 
 `core/sim/systems/guild_bank_system.gd` (`GuildBankSystem`, estado em `WorldSim.gbank`, passada no `RosterSystem.update`),
-números `Balance.GBANK_*`, falas `BotsCatalog.GBANK_LINES`, UI `game/ui/guild_bank_ui.gd` (aba Banco + sub-aba Encomendas) e
-`game/ui/guild_mission_cards.gd` (cartões à esquerda do minimapa). Check `--only=guild_bank`; fotos `-- --autostart=<c> --gbank_shot=<pasta>`.
+números `Balance.GBANK_*`, falas `BotsCatalog.GBANK_LINES`, UI `game/ui/guild_bank_ui.gd` (aba Banco), `game/ui/guild_missions_ui.gd` (aba Missões) e
+`game/ui/guild_mission_notice.gd` (aviso à esquerda do minimapa; o antigo `guild_mission_cards.gd` ficou sem uso). Check `--only=guild_bank`; fotos `-- --autostart=<c> --gbank_shot=<pasta>`.
 Decisões além do texto:
 - §3.6 "nunca cai" = não decai com o tempo; tirar de volta o próprio depósito devolve a Contribuição e a patente acompanha (senão dava para subir girando o item).
 - §3.5 "+50% e afinidade": a afinidade é uma lembrança nova `presente` (+5), no máximo uma por bot a cada `GBANK_GIFT_MEMORY_CD` min.
